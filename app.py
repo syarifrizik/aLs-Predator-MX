@@ -413,15 +413,17 @@ def apply_custom_css():
         /* Main Title Styles */  
         .main-title {  
             background: linear-gradient(120deg, #9333EA, #6B21A8);  
+            background-clip: text;  
             -webkit-background-clip: text;  
+            color: #9333EA; /* Fallback color if gradient fails */  
             -webkit-text-fill-color: transparent;  
             animation: float 3s ease-in-out infinite;  
             font-weight: 800;  
             text-align: center;  
             font-size: 3.5em !important;  
-            margin: 20px auto !important;
+            margin: 20px auto !important;  
             text-shadow: 2px 2px 4px rgba(0,0,0,0.1);  
-        }  
+        }
 
         /* Location Badge */  
         .location-badge {  
