@@ -23,7 +23,28 @@ import urllib.parse
 dotenv.load_dotenv()
 
 # List of valid tokens for authentication
-valid_tokens = ["999", "FISH3020B", "VISION789C", "RENGAS456D", "AQUATIC123E"]
+valid_tokens = [
+    "999",
+    "tpi123"
+    "risko99"
+    "LMX"
+    "Syarifrizik99"
+    "OceanWave",
+    "FishScale",
+    "VisionTide",
+    "RengasFin",
+    "AquaticBlue",
+    "CoralReef",
+    "SeaCurrent",
+    "TunaSwift",
+    "MermaidSong",
+    "NetCast",
+    "DeepAbyss",
+    "SalmonRun",
+    "SharkBite",
+    "PearlDive",
+    "KelpForest"
+]
 
 # Custom model names for branding
 anthropic_models = [
@@ -604,7 +625,7 @@ def main():
             st.success("✅ Authentication successful!")
             
             # Once authenticated, set default API keys from environment variables
-            openai_api_key = os.getenv("OPENAI_API_KEY", "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")
+            openai_api_key = os.getenv("OPENAI_API_KEY", "")
             google_api_key = os.getenv("GOOGLE_API_KEY", "")
             anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
 
