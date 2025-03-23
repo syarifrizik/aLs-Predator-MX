@@ -25,9 +25,13 @@ dotenv.load_dotenv()
 # List of valid tokens for authentication
 valid_tokens = [
     "999",
-    "tpi123"
-    "risko99"
-    "LMX"
+    "tpi123",
+    "indonesiagelap2025",
+    "IPTEQWONT",
+    "KONTOLODONDIKA",
+    "tpi123",
+    "risko99",
+    "LMX",
     "Syarifrizik99"
     "OceanWave",
     "FishScale",
