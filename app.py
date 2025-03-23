@@ -363,7 +363,7 @@ Analisis dilakukan dengan yakin berdasarkan interpretasi visual dari gambar digi
 def setup_page_config():
     """Configure page settings"""
     st.set_page_config(
-        page_title="VisionFish.io - Analisis Ikan Pintar",
+        page_title="\033[95mVisionFish.io - Analisis Ikan Pintar\033[0m",  # Purple text
         page_icon="🐟",
         layout="wide",
         initial_sidebar_state="expanded",
