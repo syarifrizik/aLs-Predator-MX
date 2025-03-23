@@ -11,9 +11,9 @@ import random
 import anthropic
 import streamlit.components.v1 as components
 import streamlit as st  
-import pandas as pd  # Pastikan untuk menambahkan ini  
-import plotly.express as px  # Jika Anda menggunakan Plotly untuk grafik  
-from plotly import graph_objects as go  # For additional chart types  
+import pandas as pd  
+import plotly.express as px  
+from plotly import graph_objects as go  
 from io import BytesIO
 import seaborn as sns  
 import plotly.graph_objects as go
@@ -22,23 +22,38 @@ import urllib.parse
 
 dotenv.load_dotenv()
 
+# List of valid tokens for authentication
+valid_tokens = ["123", "FISH3020B", "VISION789C", "RENGAS456D", "AQUATIC123E"]
+
+# Custom model names for branding
 anthropic_models = [
-    "claude-3-5-sonnet-20240620"
+    "Neptune-Savant"
 ]
 
 google_models = [
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
+    "ReefSpark-1.5",
+    "WaveCore-Pro",
 ]
 
 openai_models = [
-    "gpt-4o", 
-    "gpt-4-turbo", 
-    "gpt-3.5-turbo-16k", 
-    "gpt-4", 
-    "gpt-4-32k",
+    "AquaVision-4", 
+    "TidalFlux-4", 
+    "CoralPulse-3.5", 
+    "DeepMind-4", 
+    "OceanVault-4",
 ]
 
+# Map custom names to actual model names for API calls
+model_name_mapping = {
+    "Neptune-Savant": "claude-3-5-sonnet-20240620",
+    "ReefSpark-1.5": "gemini-1.5-flash",
+    "WaveCore-Pro": "gemini-1.5-pro",
+    "AquaVision-4": "gpt-4o",
+    "TidalFlux-4": "gpt-4-turbo",
+    "CoralPulse-3.5": "gpt-3.5-turbo-16k",
+    "DeepMind-4": "gpt-4",
+    "OceanVault-4": "gpt-4-32k"
+}
 
 def get_system_prompt():
     return """Saya adalah VisionFish.io tetap dapat menentukan dan tidak ragu dalam menjawab.
@@ -63,14 +78,6 @@ def initialize_session_state():
 def messages_to_gemini(messages):
     gemini_messages = []
     prev_role = None
-    
-    # Add system prompt first
-    gemini_messages.append({
-        "role": "user",
-        "parts": [{
-            "text": get_system_prompt() + "\n\nSaya adalah VisionFish.io, asisten AI spesialis perikanan."
-        }]
-    })
     
     for message in messages:
         if message["role"] == "system":
@@ -142,11 +149,14 @@ def stream_llm_response(model_params, model_type="openai", api_key=None):
     response_message = ""
     system_prompt = get_system_prompt()
     
+    # Get the actual model name from our custom name
+    actual_model = model_name_mapping.get(model_params["model"], model_params["model"])
+    
     if model_type == "openai":
         client = OpenAI(api_key=api_key)
         messages = [{"role": "system", "content": system_prompt}] + st.session_state.messages
         for chunk in client.chat.completions.create(
-            model=model_params["model"],
+            model=actual_model,
             messages=messages,
             temperature=0.3,
             max_tokens=4096,
@@ -159,7 +169,7 @@ def stream_llm_response(model_params, model_type="openai", api_key=None):
     elif model_type == "google":
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            model_name=model_params["model"],
+            model_name=actual_model,
             generation_config={"temperature": 0.3}
         )
         gemini_messages = messages_to_gemini(st.session_state.messages)
@@ -174,7 +184,7 @@ def stream_llm_response(model_params, model_type="openai", api_key=None):
         messages = messages_to_anthropic(st.session_state.messages)
         
         with client.messages.stream(
-            model=model_params["model"],
+            model=actual_model,
             messages=messages,
             temperature=0.3,
             max_tokens=4096
@@ -194,11 +204,11 @@ def get_model_params(model_type):
     }
     
     if model_type == "openai":
-        params["model"] = "gpt-4"
+        params["model"] = "AquaVision-4"
     elif model_type == "google":
-        params["model"] = "gemini-pro"
+        params["model"] = "WaveCore-Pro"
     elif model_type == "anthropic":
-        params["model"] = "claude-3-sonnet-20240307"
+        params["model"] = "Neptune-Savant"
     
     return params
 
@@ -216,8 +226,92 @@ def base64_to_image(base64_string):
     base64_string = base64_string.split(",")[1]
     return Image.open(BytesIO(base64.b64decode(base64_string)))
 
+def process_fish_data(df):  
+    # Menghitung jumlah setiap kategori kesegaran berdasarkan kondisi yang ada  
+    prima = ((df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] == 9).all(axis=1)).sum()  
+    advance = ((df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] >= 7) & (df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] <= 8)).all(axis=1).sum()  
+    sedang = ((df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] >= 5) & (df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] <= 6)).all(axis=1).sum()  
+    busuk = ((df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] >= 1) & (df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] <= 4)).all(axis=1).sum()  
+
+    param_averages = {  
+        "Mata": df['Mata'].mean(),  
+        "Insang": df['Insang'].mean(),  
+        "Lendir": df['Lendir'].mean(),  
+        "Daging": df['Daging'].mean(),  
+        "Bau": df['Bau'].mean(),  
+        "Tekstur": df['Tekstur'].mean(),  
+    }  
+
+    processed_df = df.copy()  
+    processed_df['Rata-rata'] = processed_df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']].mean(axis=1)  
+
+    # Logika penentuan 'Kesegaran' berdasarkan 'Rata-rata'  
+    processed_df['Kesegaran'] = processed_df['Rata-rata'].apply(  
+        lambda x: 'Prima' if x == 9 else   
+                ('Advance' if 7 <= x < 9 else   
+                ('Sedang' if 5 <= x < 7 else   
+                    'Busuk'))  
+    )  
+
+    return processed_df, prima, advance, sedang, busuk, param_averages
+
+def get_freshness_prompt():
+    return """Analisis Kesegaran Ikan Dari Gambar:
+    Parameter penilaian berdasarkan apa yang dilihat.
+    Skor:
+    Sangat Baik (Excellent): Skor 9
+    Masih Baik (Good): Skor 7-8
+    Tidak Segar (Moderate): Skor 5-6
+    Sangat Tidak Segar (Spoiled): Skor 1-4
+    Kesimpulan:
+
+    skor(Penilaian didasarkan pada interpretasi visual dari gambar digital menggunakan skala tersebut 1-9 silahkan tulis skornya di berapa "dari 9")
+    Setiap kesimpulan disertai dengan alasan.
+    """
+
+# Replace your existing render_clean_button_interface function with this:
+def render_clean_button_interface():
+    selected_prompt = None
+    display_text = None
+
+    # Custom button styling
+    st.markdown("""
+        <style>
+        .stButton > button {
+            background-color: #9333EA;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .stButton > button:hover {
+            background-color: #7928CA;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.2);
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Create buttons only
+    if st.button("\U0001F41F Analisis Spesies Ikan", use_container_width=True):
+        # Use hidden system prompt for the AI but show a simple instruction to the user
+        selected_prompt = get_system_prompt()
+        display_text = "Silahkan analisis ikan pada gambar dan berikan informasi dalam bentuk tabel."
+        return selected_prompt, display_text
+
+    if st.button("\U0001F31F Analisis Kesegaran Ikan", use_container_width=True):
+        selected_prompt = get_freshness_prompt()
+        display_text = "Silahkan analisis kesegaran ikan pada gambar dan berikan skor kesegaran."
+        return selected_prompt, display_text
+        
+    # If no button was pressed, return None, None
+    return None, None
 
 def main():
+    # Initialize session state
+    initialize_session_state()
 
     # --- Page Config ---
     # Custom CSS with modern effects and purple theme
@@ -406,7 +500,28 @@ def main():
             margin: 0 auto;  
             padding: 20px;  
             text-align: center; /* Centered */  
-        }  
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(147, 51, 234, 0.1);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #9333EA, #6B21A8);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #6B21A8, #4C1D95);
+        }
     </style>  
     """, unsafe_allow_html=True)
 
@@ -452,62 +567,70 @@ def main():
         </div>
     """, unsafe_allow_html=True)
 
-
-    # Fungsi untuk memproses data dan menghitung rata-rata  
-
-
-
-
-
     # --- Side Bar ---
     with st.sidebar:
-        cols_keys = st.columns(2)
-        with cols_keys[0]:  
-            default_openai_api_key = os.getenv("OPENAI_API_KEY") if os.getenv("OPENAI_API_KEY") is not None else ""  
-            with st.popover("🔐 TPI - A"):  
-                st.markdown("[Get password](https://wa.me/0895619313339?text=Halo%20bang%2C%20saya%20ingin%20mendapatkan%20password%20API%20TPI-USER-G)", unsafe_allow_html=True)  
-                openai_api_key = st.text_input("Masukkan password TPI - A:", value=default_openai_api_key, type="password")  
-                
-        with cols_keys[1]:  
-            default_google_api_key = os.getenv("GOOGLE_API_KEY") if os.getenv("GOOGLE_API_KEY") is not None else ""  
-            with st.popover("🔐 TPI - B"):  
-                st.markdown("[Get password](https://wa.me/0895619313339?text=Halo%20bang%2C%20saya%20ingin%20mendapatkan%20password%20API%20TPI-USER-B)", unsafe_allow_html=True)  
-                google_api_key = st.text_input("Masukkan password TPI - B:", value=default_google_api_key, type="password")  
+        st.write("### 🔐 Authentication")
+        
+        # Token authentication
+        access_token = st.text_input("Enter access token:", type="password")
+        
+        # Check if token is valid
+        is_authenticated = access_token in valid_tokens
+        st.session_state.is_authenticated = is_authenticated
+        
+        if not is_authenticated:
+            st.warning("Please enter a valid token to access VisionFish.io")
+            
+            # Add a request link for getting a token
+            st.markdown("[Request access token](https://wa.me/0895619313339?text=Halo%20bang%2C%20saya%20ingin%20mendapatkan%20token%20akses%20untuk%20VisionFish.io)", unsafe_allow_html=True)
+        else:
+            st.success("✅ Authentication successful!")
+            
+            # Once authenticated, set default API keys from environment variables
+            openai_api_key = os.getenv("OPENAI_API_KEY", "")
+            google_api_key = os.getenv("GOOGLE_API_KEY", "")
+            anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
 
-        default_anthropic_api_key = os.getenv("ANTHROPIC_API_KEY") if os.getenv("ANTHROPIC_API_KEY") is not None else ""  
-        with st.popover("🔐 TPI - C"):  
-            st.markdown("[Get password](https://wa.me/0895619313339?text=Halo%20bang%2C%20saya%20ingin%20mendapatkan%20password%20API%20TPI-USER-C)", unsafe_allow_html=True)  
-            anthropic_api_key = st.text_input("Masukkan password TPI - C:", value=default_anthropic_api_key, type="password")
-    # --- Main Content ---
-    if (  
-        (openai_api_key == "" or openai_api_key is None or not openai_api_key.startswith("sk-")) and  
-        (google_api_key == "" or google_api_key is None or not google_api_key.startswith("AIz")) and
-        (anthropic_api_key == "" or anthropic_api_key is None or not anthropic_api_key.startswith("anthropic-"))  
-    ): 
+    # Sidebar for upload file
+    if "data_penilaian" not in st.session_state:
+        st.session_state.data_penilaian = pd.DataFrame({
+            'No.': [""],  # Satu baris awal
+            'Nama Panelis': [""],  # Nama panelis statis
+            'Mata': [""],  # Nilai default
+            'Insang':[""],
+            'Lendir': [""],
+            'Daging': [""],
+            'Bau': [""],
+            'Tekstur': [""],
+        })
+
+    # Check authentication before proceeding with the main content
+    if not st.session_state.is_authenticated:
         st.write("#")
-
-        with st.sidebar:
-            # ...
-
-            with st.popover("⚙️ Model parameters"):
-                model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
-
-            def reset_conversation():
-                if "messages" in st.session_state and len(st.session_state.messages) > 0:
-                    st.session_state.pop("messages", None)
-                st.button("🗑️ Mulai Chatan Baru", on_click=reset_conversation)
-
-            # ...
-
+        st.write("## 🔒 Please authenticate to access VisionFish.io")
+        
+        # Display a teaser image or information about the app
+        st.info("Enter a valid token in the sidebar to unlock all features")
+        
+        st.write("""
+        ### What VisionFish.io offers:
+        - 🐟 Fish species identification
+        - 🔍 Freshness analysis
+        - 📊 Data visualization and reporting
+        - 📱 Real-time monitoring
+        """)
+        
+        # Show map in sidebar even when not authenticated
         with st.sidebar:
             st.write("#")
             st.write("#")
             st.write("#")
             st.write("🗺️ Peta Sungai Rengas:")
             st.components.v1.html('''
-            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63837.090342372285!2d109.16168223152577!3d-0.016918696446186224!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e1d5f74c5e63725%3A0x83498a713bf64183!2sSungai%20Rengas%2C%20Kec.%20Sungai%20Kakap%2C%20Kabupaten%20Kubu%20Raya%2C%20Kalimantan%20Barat!5e0!3m2!1sid!2sid!4v1735501581541!5m2!1sid!2sid" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-            ''')
+            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63837.090342372285!2d109.16168223152577!3d-0.016918696446186224!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e1d5f74c5e63725%3A0x83498a713bf64183!2sSungai%20Rengas%2C%20Kec.%20Sungai%20Kakap%2C%20Kabupaten%20Kubu%20Raya%2C%20Kalimantan%20Barat!5e0!3m2!1sid!2sid!4v1735501581541!5m2!1sid!2sid" width="300" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            ''', height=470)
     else:
+        # This is where all your authenticated code goes
         client = OpenAI(api_key=openai_api_key)
 
         if "messages" not in st.session_state:
@@ -526,18 +649,20 @@ def main():
                     elif content["type"] == "audio_file":
                         st.audio(content["audio_file"])
 
-
-        # Side bar model options and inputs
+        # --- Sidebar Upload Data ---
         with st.sidebar:
-
             st.divider()
             
+            # Model selection
             available_models = [] + (anthropic_models if anthropic_api_key else []) + (google_models if google_api_key else []) + (openai_models if openai_api_key else [])
             model = st.selectbox("Select a model:", available_models, index=0)
             model_type = None
-            if model.startswith("gpt"): model_type = "openai"
-            elif model.startswith("gemini"): model_type = "google"
-            elif model.startswith("claude"): model_type = "anthropic"
+            if model in openai_models: 
+                model_type = "openai"
+            elif model in google_models: 
+                model_type = "google"
+            elif model in anthropic_models:
+                model_type = "anthropic"
             
             with st.popover("⚙️ Model parameters"):
                 model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
@@ -563,11 +688,10 @@ def main():
                 "🗑️ Mulai chatan baru", 
                 on_click=reset_conversation,
             )
-
             st.divider()
-
+            
             # Image Upload
-            if model in ["gpt-4o", "gpt-4-turbo", "gemini-1.5-flash", "gemini-1.5-pro", "claude-3-5-sonnet-20240620"]:
+            if model in ["AquaVision-4", "TidalFlux-4", "ReefSpark-1.5", "WaveCore-Pro", "Neptune-Savant"]:
                     
                 st.write(f"### **Upload {' Document' if model_type=='google' else ''}:**")
 
@@ -623,123 +747,35 @@ def main():
                                 on_change=add_image_to_messages,
                             )
 
-            # RATA-RATA
-            # RATA-RATA  
-            def process_fish_data(df):  
-                # Menghitung jumlah setiap kategori kesegaran berdasarkan kondisi yang ada  
-                prima = ((df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] == 9).all(axis=1)).sum()  
-                advance = ((df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] >= 7) & (df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] <= 8)).all(axis=1).sum()  
-                sedang = ((df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] >= 5) & (df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] <= 6)).all(axis=1).sum()  
-                busuk = ((df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] >= 1) & (df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']] <= 4)).all(axis=1).sum()  
-
-                param_averages = {  
-                    "Mata": df['Mata'].mean(),  
-                    "Insang": df['Insang'].mean(),  
-                    "Lendir": df['Lendir'].mean(),  
-                    "Daging": df['Daging'].mean(),  
-                    "Bau": df['Bau'].mean(),  
-                    "Tekstur": df['Tekstur'].mean(),  
-                }  
-
-                processed_df = df.copy()  
-                processed_df['Rata-rata'] = processed_df[['Mata', 'Insang', 'Lendir', 'Daging', 'Bau', 'Tekstur']].mean(axis=1)  
-
-                # Logika penentuan 'Kesegaran' berdasarkan 'Rata-rata'  
-                processed_df['Kesegaran'] = processed_df['Rata-rata'].apply(  
-                    lambda x: 'Prima' if x == 9 else   
-                            ('Advance' if 7 <= x < 9 else   
-                            ('Sedang' if 5 <= x < 7 else   
-                                'Busuk'))  
-                )  
-
-                return processed_df, prima, advance, sedang, busuk, param_averages
-            # Sidebar untuk upload file
-            # --- Inisialisasi session state jika belum ada ---
-            if "data_penilaian" not in st.session_state:
-                st.session_state.data_penilaian = pd.DataFrame({
-                    'No.': [""],  # Satu baris awal
-                    'Nama Panelis': [""],  # Nama panelis statis
-                    'Mata': [""],  # Nilai default
-                    'Insang':[""],
-                    'Lendir': [""],
-                    'Daging': [""],
-                    'Bau': [""],
-                    'Tekstur': [""],
-                })
-
-            # --- Sidebar Upload Data ---
-            with st.sidebar:
-                st.header("Upload Data:")
-                uploaded_file = st.file_uploader(
-                    "Upload Data Penilaian (CSV):",
-                    type=['csv'],
-                    help="Upload file CSV yang berisi data penilaian kualitas ikan"
-                )
+            st.header("Upload Data:")
+            uploaded_file = st.file_uploader(
+                "Upload Data Penilaian (CSV):",
+                type=['csv'],
+                help="Upload file CSV yang berisi data penilaian kualitas ikan"
+            )
+            
+            # Expander untuk format data yang dibutuhkan
+            with st.expander("Format Bentuk CSV yang Dibutuhkan", expanded=False):
                 
-                # Tampilan awal sebelum upload
-                st.info("Silakan upload file CSV Anda di sidebar untuk memulai analisis")
+                # Tampilkan Editable Dataframe (Data tetap tersimpan di session_state)
+                st.subheader("Masukkan Data Penilaian:")
+                edited_df = st.data_editor(
+                    st.session_state.data_penilaian,
+                    num_rows="dynamic",  # User bisa menambah sendiri
+                    use_container_width=True
+                )
 
-                # Expander untuk format data yang dibutuhkan
-                with st.expander("Format Bentuk CSV yang Dibutuhkan", expanded=False):
-                    
-                    # Tampilkan Editable Dataframe (Data tetap tersimpan di session_state)
-                    st.subheader("Masukkan Data Penilaian:")
-                    edited_df = st.data_editor(
-                        st.session_state.data_penilaian,
-                        num_rows="dynamic",  # User bisa menambah sendiri
-                        use_container_width=True
-                    )
+                # Menampilkan peringatan dengan ukuran lebih kecil
+                st.markdown(
+                    """
+                    <div style="font-size: 14px; color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 5px;">
+                        Silahkan buat dan download file Anda secara digital dengan mengklik tombol yang sudah disediakan pada kolom tabel di atas. 😊
+                    </div>
+                    """, unsafe_allow_html=True
+                )
 
-                    # Menampilkan peringatan dengan ukuran lebih kecil
-                    st.markdown(
-                        """
-                        <div style="font-size: 14px; color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 5px;">
-                            Silahkan buat dan download file Anda secara digital dengan mengklik tombol yang sudah disediakan pada kolom tabel di atas. 😊
-                        </div>
-                        """, unsafe_allow_html=True
-                    )
-
-                    # Link informasi lebih lanjut
-                    st.markdown("<p style='font-size: 12px;'><a href='https://wa.me/0895619313339'>Info selengkapnya</a></p>", unsafe_allow_html=True)
-
-            # # Audio Upload
-            # st.write("#")
-            # st.write(f"### **🎤 Add an audio{' (Speech To Text)' if model_type == 'openai' else ''}:**")
-
-            # audio_prompt = None
-            # audio_file_added = False
-            # if "prev_speech_hash" not in st.session_state:
-            #     st.session_state.prev_speech_hash = None
-
-            # speech_input = audio_recorder("Press to Talk:", icon_size="3x", neutral_color="#6ca395", )
-            # if speech_input and st.session_state.prev_speech_hash != hash(speech_input):
-            #     st.session_state.prev_speech_hash = hash(speech_input)
-            #     if model_type != "google":
-            #         transcript = client.audio.transcriptions.create(
-            #             model="whisper-1", 
-            #             file=("audio.wav", speech_input),
-            #         )
-
-            #         audio_prompt = transcript.text
-
-            #     elif model_type == "google":
-            #         # save the audio file
-            #         audio_id = random.randint(100000, 999999)
-            #         with open(f"audio_{audio_id}.wav", "wb") as f:
-            #             f.write(speech_input)
-
-            #         st.session_state.messages.append(
-            #             {
-            #                 "role": "user", 
-            #                 "content": [{
-            #                     "type": "audio_file",
-            #                     "audio_file": f"audio_{audio_id}.wav",
-            #                 }]
-            #             }
-            #         )
-
-            #         audio_file_added = True
-
+                # Link informasi lebih lanjut
+                st.markdown("<p style='font-size: 12px;'><a href='https://wa.me/0895619313339'>Info selengkapnya</a></p>", unsafe_allow_html=True)
 
             st.divider()
             st.write("🗺️ Peta Sungai Rengas:")
@@ -747,7 +783,7 @@ def main():
             <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d78549.54432253679!2d109.21681479925691!3d-0.0179603793051129!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e1d5f74c5e63725%3A0x83498a713bf64183!2sSungai%20Rengas%2C%20Kec.%20Sungai%20Kakap%2C%20Kabupaten%20Kubu%20Raya%2C%20Kalimantan%20Barat!5e1!3m2!1sid!2sid!4v1735743322793!5m2!1sid!2sid" width="300" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
             ''', height=470)
 
-        #sini  
+        # Process uploaded CSV file if available
         if uploaded_file is not None:
             try:
                 df = pd.read_csv(uploaded_file)
@@ -807,6 +843,7 @@ def main():
                 freshness = processed_df['Kesegaran'].iloc[0] 
                 avg_score = processed_df['Rata-rata'].mean()
                 st.metric(label="Tingkat Mutu Ikan", value=freshness, delta=f"{avg_score:.2f} Rata-rata Skor")
+                
                 # Tambahkan fungsi untuk mengunduh CSV
                 def download_csv(df, filename="data_penilaian_processed.csv"):
                     csv = df.to_csv(index=False)
@@ -820,68 +857,14 @@ def main():
             except Exception as e:
                 st.error(f"Error dalam memproses file: {str(e)}")
                 
-        # Chat input
-        # Chat input
-        # Define hidden system prompts
-        def get_system_prompt():
-            return """Analisis Spesies Ikan:
-            Identifikasi spesies dan klasifikasi diberikan dalam bentuk tabel berikut:
-            | Kategori | Detail |
-            |----------|---------|
-            | Nama Ikan | [nama ikan] |
-            | Nama Ilmiah | [nama latin] |
-            | Famili | [famili] |"""
-
-        def get_freshness_prompt():
-            return """Analisis Kesegaran Ikan Dari Gambar:
-            Parameter penilaian berdasarkan apa yang dilihat.
-            Skor:
-            Sangat Baik (Excellent): Skor 9
-            Masih Baik (Good): Skor 7-8
-            Tidak Segar (Moderate): Skor 5-6
-            Sangat Tidak Segar (Spoiled): Skor 1-4
-            Kesimpulan:
-
-            skor(Penilaian didasarkan pada interpretasi visual dari gambar digital menggunakan skala tersebut 1-9 silahkan tulis skornya di berapa "dari 9")
-            Setiap kesimpulan disertai dengan alasan.
-            """
-
-        # Define button interface
-        def render_clean_button_interface():
-            selected_prompt = None
-
-            # Custom button styling
-            st.markdown("""
-                <style>
-                .stButton > button {
-                    background-color: #9333EA;
-                    color: white;
-                    border: none;
-                    padding: 15px 30px;
-                    border-radius: 10px;
-                    font-weight: 500;
-                    transition: all 0.3s ease;
-                }
-                .stButton > button:hover {
-                    background-color: #7928CA;
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(147, 51, 234, 0.2);
-                }
-                </style>
-            """, unsafe_allow_html=True)
-
-            # Create buttons only
-            if st.button("\U0001F41F Analisis Spesies Ikan", use_container_width=True):
-                selected_prompt = get_system_prompt()
-
-            if st.button("\U0001F31F Analisis Kesegaran Ikan", use_container_width=True):
-                selected_prompt = get_freshness_prompt()
-
-            return selected_prompt
-
-
-        # Main content section
-        if prompt := render_clean_button_interface():
+        # Chat interface
+        # Define button interface for prompts
+        result = render_clean_button_interface()
+        prompt = result[0] if result else None
+        display_text = result[1] if result else None
+        
+        if prompt:
+            # Add the actual prompt to the messages for the AI (hidden from user)
             st.session_state.messages.append({
                 "role": "user",
                 "content": [{
@@ -889,6 +872,11 @@ def main():
                     "text": prompt
                 }]
             })
+            
+            # If we have a display text, show it to the user instead of the system prompt
+            if display_text:
+                with st.chat_message("user"):
+                    st.write(display_text)
             
             with st.chat_message("assistant"):
                 model2key = {
@@ -905,17 +893,54 @@ def main():
                 
                 st.write_stream(response)
                 
-                # if audio_response:
-                #     response_text = "".join(response)
-                #     audio = client.audio.speech.create(
-                #         model=tts_model,
-                #         voice=tts_voice,
-                #         input=response_text
-                #     )
+                if audio_response:
+                    response_text = st.session_state.messages[-1]["content"][0]["text"]
+                    audio = client.audio.speech.create(
+                        model=tts_model,
+                        voice=tts_voice,
+                        input=response_text
+                    )
                     
-                #     audio_base64 = base64.b64encode(audio.content).decode('utf-8')
-                #     st.audio(data=f"data:audio/wav;base64,{audio_base64}", format="audio/wav")
-
+                    audio_base64 = base64.b64encode(audio.content).decode('utf-8')
+                    st.audio(data=f"data:audio/wav;base64,{audio_base64}", format="audio/wav")
+        # # Text input for chat
+        # if user_input := st.chat_input("Type your message here..."):
+        #     st.session_state.messages.append({
+        #         "role": "user",
+        #         "content": [{
+        #             "type": "text",
+        #             "text": user_input
+        #         }]
+        #     })
+            
+        #     with st.chat_message("user"):
+        #         st.write(user_input)
+                
+        #     with st.chat_message("assistant"):
+        #         model2key = {
+        #             "openai": openai_api_key,
+        #             "google": google_api_key,
+        #             "anthropic": anthropic_api_key,
+        #         }
+                
+        #         response = stream_llm_response(
+        #             model_params=model_params,
+        #             model_type=model_type,
+        #             api_key=model2key[model_type]
+        #         )
+                
+        #         st.write_stream(response)
+                
+        #         if audio_response:
+        #             response_text = st.session_state.messages[-1]["content"][0]["text"]
+        #             audio = client.audio.speech.create(
+        #                 model=tts_model,
+        #                 voice=tts_voice,
+        #                 input=response_text
+        #             )
+                    
+        #             audio_base64 = base64.b64encode(audio.content).decode('utf-8')
+        #             st.audio(data=f"data:audio/wav;base64,{audio_base64}", format="audio/wav")
 
 
 if __name__=="__main__":
