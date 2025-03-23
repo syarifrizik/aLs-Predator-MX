@@ -1094,7 +1094,7 @@ def render_dashboard():
             <div class="icon">
                 🐟
             </div>
-            <h1 class="main-title">
+            <h1 class="main-title" style="font-size: 2em; background: linear-gradient(120deg, #9333EA, #6B21A8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800;">
                 VisionFish.io
             </h1>
             <div style="text-align: center;">
