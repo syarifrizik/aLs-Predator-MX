@@ -23,7 +23,7 @@ import urllib.parse
 dotenv.load_dotenv()
 
 # List of valid tokens for authentication
-valid_tokens = ["999", "FISH3020B", "VISION789C", "RENGAS456D", "AQUATIC123E"]
+valid_tokens = ["999", "KONTOLODONDIKA", "FISH3020B", "VISION789C", "RENGAS456D", "AQUATIC123E"]
 
 # Custom model names for branding
 anthropic_models = [
