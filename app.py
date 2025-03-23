@@ -23,7 +23,7 @@ import urllib.parse
 dotenv.load_dotenv()
 
 # List of valid tokens for authentication
-valid_tokens = ["999", "KONTOLODONDIKA", "FISH3020B", "VISION789C", "RENGAS456D", "AQUATIC123E"]
+valid_tokens = ["999", "FISH3020B", "VISION789C", "RENGAS456D", "AQUATIC123E"]
 
 # Custom model names for branding
 anthropic_models = [
@@ -256,21 +256,34 @@ def process_fish_data(df):
 
 def get_freshness_prompt():
     return """Analisis Kesegaran Ikan dari Gambar:
-Parameter penilaian berdasarkan apa yang dilihat.
+[Jika gambar yang diunggah bukan gambar ikan maka Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan, Saya dapat menganalisis dan menilai kesegaran ikan dalam bentuk gambar]
+
+Parameter penilaian ikan ada 6, namun karena dalam bentuk visual saya hanya dapat melakukan 4 ini secara akurat:
+- Mata
+- Insang
+- Lendir permukaan badan
+- Sayatan daging
+
+[Untuk lebih baik lagi maka anda dapat mengecek kondisi ini secara langsung]
+- Tekstur daging 
+- Bau
+
 Skor:
 - Sangat Baik (Excellent): Skor 9
 - Masih Baik (Good): Skor 7-8
 - Tidak Segar (Moderate): Skor 5-6
 - Sangat Tidak Segar (Spoiled): Skor 1-4
-Kesimpulan:
 
-Skor: [Penilaian didasarkan pada interpretasi visual dari gambar digital menggunakan skala tersebut (1-9). Tulis skornya di sini, misalnya "X dari 9"].
-Setiap kesimpulan disertai dengan alasan."""
+Kesimpulan:
+Skor: [Tulis skor di sini, misalnya "X dari 9", berdasarkan analisis visual].
+Alasan: [Jelaskan alasan skor berdasarkan parameter di atas, misalnya "Warna insang cerah dan sisik mengkilap menunjukkan kesegaran tinggi"]."""
     
 
 def get_analisis_ikan_prompt():
-    return """Analisis Kesegaran Ikan dari Gambar:
-Identifikasi spesies dan klasifikasi ikan dalam gambar, berikan informasi dalam bentuk tabel berikut:
+    return """Analisis Spesies Ikan dari Gambar:
+[Jika gambar yang diunggah bukan gambar ikan, maka: "Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan." Namun, Jika gambar ikan maka "Saya dapat menjawab ikan dari gambar dengan tepat"]
+
+Identifikasi spesies dan klasifikasi ikan dari gambar adalah:
 
 | Kategori    | Detail       |
 |-------------|--------------|
@@ -278,7 +291,7 @@ Identifikasi spesies dan klasifikasi ikan dalam gambar, berikan informasi dalam 
 | Nama Ilmiah | [nama latin] |
 | Famili      | [famili]     |
 
-Berikan jawaban dengan yakin tanpa kata-kata keraguan seperti 'mungkin', 'bisa jadi', atau 'kemungkinan'."""
+Analisis dilakukan dengan yakin berdasarkan interpretasi visual dari gambar digital. Sertakan penjelasan singkat tentang ciri-ciri yang digunakan untuk identifikasi, seperti bentuk tubuh, warna, atau pola sisik."""
 
 
 def render_clean_button_interface():
@@ -306,7 +319,7 @@ def render_clean_button_interface():
 
     # Create buttons only
     if st.button("\U0001F41F Analisis Spesies Ikan", use_container_width=True):
-        selected_prompt = get_system_prompt()
+        selected_prompt = get_analisis_ikan_prompt()
 
     if st.button("\U0001F31F Analisis Kesegaran Ikan", use_container_width=True):
         selected_prompt = get_freshness_prompt()
@@ -591,7 +604,7 @@ def main():
             st.success("✅ Authentication successful!")
             
             # Once authenticated, set default API keys from environment variables
-            openai_api_key = os.getenv("OPENAI_API_KEY", "")
+            openai_api_key = os.getenv("OPENAI_API_KEY", "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")
             google_api_key = os.getenv("GOOGLE_API_KEY", "")
             anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
 
