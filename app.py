@@ -363,7 +363,7 @@ Analisis dilakukan dengan yakin berdasarkan interpretasi visual dari gambar digi
 def setup_page_config():
     """Configure page settings"""
     st.set_page_config(
-        page_title="\033[95mVisionFish.io - Analisis Ikan Pintar\033[0m",  # Purple text
+        page_title="VisionFish.io - Analisis Ikan Pintar",
         page_icon="🐟",
         layout="wide",
         initial_sidebar_state="expanded",
@@ -409,17 +409,19 @@ def apply_custom_css():
             0% { background-position: -1000px 0; }  
             100% { background-position: 1000px 0; }  
         }  
-                
+
         /* Main Title Styles */  
         .main-title {  
-            color: #9333EA; /* Solid purple color */  
+            background: linear-gradient(120deg, #9333EA, #6B21A8);  
+            -webkit-background-clip: text;  
+            -webkit-text-fill-color: transparent;  
             animation: float 3s ease-in-out infinite;  
             font-weight: 800;  
             text-align: center;  
             font-size: 3.5em !important;  
-            margin: 20px auto !important;  
+            margin: 20px auto !important;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.1);  
-        }
+        }  
 
         /* Location Badge */  
         .location-badge {  
@@ -1088,11 +1090,16 @@ def render_dashboard():
     """Render the water quality dashboard with enhanced UI"""
     # Header with enhanced animations
     st.markdown("""
+        <style>
+            .custom-title {
+                color: #6B21A8;
+            }
+        </style>
         <div class="content-wrapper">
             <div class="icon">
                 🐟
             </div>
-            <h1 class="main-title" style="font-size: 2em; background: linear-gradient(120deg, #9333EA, #6B21A8); background-clip: text; -webkit-background-clip: text; color: #9333EA; -webkit-text-fill-color: transparent; font-weight: 800;">
+            <h1 class="custom-title">
                 VisionFish.io
             </h1>
             <div style="text-align: center;">
