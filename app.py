@@ -23,7 +23,7 @@ import urllib.parse
 dotenv.load_dotenv()
 
 # List of valid tokens for authentication
-valid_tokens = ["123", "FISH3020B", "VISION789C", "RENGAS456D", "AQUATIC123E"]
+valid_tokens = ["999", "FISH3020B", "VISION789C", "RENGAS456D", "AQUATIC123E"]
 
 # Custom model names for branding
 anthropic_models = [
@@ -57,27 +57,26 @@ model_name_mapping = {
 
 def get_system_prompt():
     return """Saya adalah VisionFish.io tetap dapat menentukan dan tidak ragu dalam menjawab.
-
-Analisis Gambar Ikan:
-Identifikasi spesies dan klasifikasi diberikan dalam bentuk tabel berikut:
-Tabel Informasi Ikan:
-| Kategori | Detail |
-|----------|---------|
-| Nama Lokal | [nama] |
-| Nama Ilmiah | [nama latin] |
-| Famili | [famili] |
-
-(sekedar informasi, saya tidak akan menggunakan kata-kata keraguan seperti mungkin/bisasaja/mungkin saja/dan sejenisnya karena saya dapat langsung memastikan bahwa itu benar)
 """
 
 def initialize_session_state():
     if "messages" not in st.session_state:
         st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": get_system_prompt()}]}]
+    if "is_authenticated" not in st.session_state:
+        st.session_state.is_authenticated = False
 
 
 def messages_to_gemini(messages):
     gemini_messages = []
     prev_role = None
+    
+    # Add system prompt first
+    gemini_messages.append({
+        "role": "user",
+        "parts": [{
+            "text": get_system_prompt() + "\n\nSaya adalah VisionFish.io, asisten AI spesialis perikanan."
+        }]
+    })
     
     for message in messages:
         if message["role"] == "system":
@@ -256,23 +255,34 @@ def process_fish_data(df):
     return processed_df, prima, advance, sedang, busuk, param_averages
 
 def get_freshness_prompt():
-    return """Analisis Kesegaran Ikan Dari Gambar:
-    Parameter penilaian berdasarkan apa yang dilihat.
-    Skor:
-    Sangat Baik (Excellent): Skor 9
-    Masih Baik (Good): Skor 7-8
-    Tidak Segar (Moderate): Skor 5-6
-    Sangat Tidak Segar (Spoiled): Skor 1-4
-    Kesimpulan:
+    return """Analisis Kesegaran Ikan dari Gambar:
+Parameter penilaian berdasarkan apa yang dilihat.
+Skor:
+- Sangat Baik (Excellent): Skor 9
+- Masih Baik (Good): Skor 7-8
+- Tidak Segar (Moderate): Skor 5-6
+- Sangat Tidak Segar (Spoiled): Skor 1-4
+Kesimpulan:
 
-    skor(Penilaian didasarkan pada interpretasi visual dari gambar digital menggunakan skala tersebut 1-9 silahkan tulis skornya di berapa "dari 9")
-    Setiap kesimpulan disertai dengan alasan.
-    """
+Skor: [Penilaian didasarkan pada interpretasi visual dari gambar digital menggunakan skala tersebut (1-9). Tulis skornya di sini, misalnya "X dari 9"].
+Setiap kesimpulan disertai dengan alasan."""
+    
 
-# Replace your existing render_clean_button_interface function with this:
+def get_analisis_ikan_prompt():
+    return """Analisis Kesegaran Ikan dari Gambar:
+Identifikasi spesies dan klasifikasi ikan dalam gambar, berikan informasi dalam bentuk tabel berikut:
+
+| Kategori    | Detail       |
+|-------------|--------------|
+| Nama Lokal  | [nama ikan]  |
+| Nama Ilmiah | [nama latin] |
+| Famili      | [famili]     |
+
+Berikan jawaban dengan yakin tanpa kata-kata keraguan seperti 'mungkin', 'bisa jadi', atau 'kemungkinan'."""
+
+
 def render_clean_button_interface():
     selected_prompt = None
-    display_text = None
 
     # Custom button styling
     st.markdown("""
@@ -296,18 +306,12 @@ def render_clean_button_interface():
 
     # Create buttons only
     if st.button("\U0001F41F Analisis Spesies Ikan", use_container_width=True):
-        # Use hidden system prompt for the AI but show a simple instruction to the user
         selected_prompt = get_system_prompt()
-        display_text = "Silahkan analisis ikan pada gambar dan berikan informasi dalam bentuk tabel."
-        return selected_prompt, display_text
 
     if st.button("\U0001F31F Analisis Kesegaran Ikan", use_container_width=True):
         selected_prompt = get_freshness_prompt()
-        display_text = "Silahkan analisis kesegaran ikan pada gambar dan berikan skor kesegaran."
-        return selected_prompt, display_text
-        
-    # If no button was pressed, return None, None
-    return None, None
+
+    return selected_prompt
 
 def main():
     # Initialize session state
@@ -858,13 +862,13 @@ def main():
                 st.error(f"Error dalam memproses file: {str(e)}")
                 
         # Chat interface
-        # Define button interface for prompts
-        result = render_clean_button_interface()
-        prompt = result[0] if result else None
-        display_text = result[1] if result else None
-        
+        # Define hidden system prompts
+        def get_fish_analysis_prompt():
+            return get_system_prompt()
+
+        # Chat button interface
+        prompt = render_clean_button_interface()
         if prompt:
-            # Add the actual prompt to the messages for the AI (hidden from user)
             st.session_state.messages.append({
                 "role": "user",
                 "content": [{
@@ -872,11 +876,6 @@ def main():
                     "text": prompt
                 }]
             })
-            
-            # If we have a display text, show it to the user instead of the system prompt
-            if display_text:
-                with st.chat_message("user"):
-                    st.write(display_text)
             
             with st.chat_message("assistant"):
                 model2key = {
@@ -903,6 +902,7 @@ def main():
                     
                     audio_base64 = base64.b64encode(audio.content).decode('utf-8')
                     st.audio(data=f"data:audio/wav;base64,{audio_base64}", format="audio/wav")
+
         # # Text input for chat
         # if user_input := st.chat_input("Type your message here..."):
         #     st.session_state.messages.append({
