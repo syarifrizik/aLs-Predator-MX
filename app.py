@@ -1613,7 +1613,15 @@ def render_auth_screen():
                 
                 # Reset status pemrosesan setelah selesai
                 st.session_state.is_processing = False
-
+        # Add a request link for getting a token with better styling
+        st.markdown("""
+        <div style="text-align: center; margin-top: 15px;">
+            <a href="https://wa.me/+62895619313339?text=Halo%20bang%2C%20saya%20ingin%20mendapatkan%20token%20akses%20untuk%20VisionFish.io" 
+               style="color: #A855F7; text-decoration: none; font-weight: 500;">
+               Request access token <span style="font-size: 1.2em;">→</span>
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
 
 def render_unauthenticated_content():
     """Render content for unauthenticated users with enhanced UI/UX"""
