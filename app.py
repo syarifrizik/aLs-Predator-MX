@@ -45,7 +45,7 @@ model_name_mapping = {
 }
 
 def get_system_prompt():
-    return """Saya adalah VisionFish.io tetap dapat menentukan dan tidak ragu dalam menjawab.
+    return """Saya adalah VisionFish.io khusus seputar perikanan yang tetap dapat menentukan dan tidak ragu dalam menjawab.
 """
 
 def initialize_session_state():
@@ -67,6 +67,8 @@ def initialize_session_state():
             'Bau': [""],
             'Tekstur': [""],
         })
+    if "chat_reset" not in st.session_state:
+        st.session_state.chat_reset = False
 
 def messages_to_gemini(messages):
     """Format messages for Google's Gemini model"""
@@ -77,7 +79,7 @@ def messages_to_gemini(messages):
     gemini_messages.append({
         "role": "user",
         "parts": [{
-            "text": get_system_prompt() + "\n\nSaya adalah VisionFish.io, asisten AI spesialis perikanan."
+            "text": get_system_prompt() + "\n\nSaya adalah VisionFish.io, asisten spesialis perikanan."
         }]
     })
     
@@ -320,37 +322,47 @@ def process_fish_data(df):
 
     return processed_df, prima, advance, sedang, busuk, param_averages
 
-def get_freshness_prompt():
-    """Get the prompt for fish freshness analysis"""
-    return """Analisis Kesegaran Ikan dari Gambar:
-[Jika gambar yang diunggah bukan gambar ikan maka Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan, Saya dapat menganalisis dan menilai kesegaran ikan dalam bentuk gambar]
+def get_freshness_prompt(model):
+    """Get the prompt for fish freshness analysis tailored to the model with high accuracy and confidence"""
+    base_prompt = """Analisis Kesegaran Ikan dari Gambar:
+Jika gambar yang diunggah bukan gambar ikan, kembalikan pesan: "Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan." Jika gambar adalah ikan, lanjutkan analisis berikut dengan penuh keyakinan.
 
-Parameter penilaian ikan ada 6, namun karena dalam bentuk visual saya hanya dapat melakukan 4 ini secara akurat:
-- Mata
-- Insang
-- Lendir permukaan badan
-- Sayatan daging
+Analisis kesegaran ikan berdasarkan gambar dengan parameter visual berikut:
+- Mata: Perhatikan kejernihan, kilau, dan warna.
+- Insang: Evaluasi warna (merah cerah vs. kecokelatan), kelembapan, dan ada tidaknya lendir berlebih.
+- Lendir permukaan badan: Bedakan antara lendir bening alami dan lendir keruh atau berbau.
+- Sayatan daging: Tinjau warna, tekstur, dan tanda-tanda kerusakan.
 
-[Untuk lebih baik lagi maka anda dapat mengecek kondisi ini secara langsung]
-- Tekstur daging 
-- Bau
+Skor kesegaran:
+- Sangat Baik (Excellent): 9 (semua parameter menunjukkan kesegaran optimal).
+- Masih Baik (Good): 7-8 (minor ketidaksempurnaan pada satu atau dua parameter).
+- Tidak Segar (Moderate): 5-6 (tanda-tanda penurunan kualitas yang jelas).
+- Sangat Tidak Segar (Spoiled): 1-4 (kerusakan signifikan pada sebagian besar parameter).
 
-Skor:
-- Sangat Baik (Excellent): Skor 9
-- Masih Baik (Good): Skor 7-8
-- Tidak Segar (Moderate): Skor 5-6
-- Sangat Tidak Segar (Spoiled): Skor 1-4
-
+Kembalikan hasil dalam format berikut:
 Kesimpulan:
-Skor: [Tulis skor di sini, misalnya "X dari 9", berdasarkan analisis visual].
-Alasan: [Jelaskan alasan skor berdasarkan parameter di atas, misalnya "Warna insang cerah dan sisik mengkilap menunjukkan kesegaran tinggi"]."""
-    
-def get_analisis_ikan_prompt():
-    """Get the prompt for fish species analysis"""
-    return """Analisis Spesies Ikan dari Gambar:
-[Jika gambar yang diunggah bukan gambar ikan, maka: "Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan." Namun, Jika gambar ikan maka "Saya dapat menjawab ikan dari gambar dengan tepat"]
+Skor: [X dari 9, berdasarkan analisis visual yang pasti].
+Alasan: [Jelaskan dengan yakin berdasarkan observasi parameter di atas, hindari keraguan atau asumsi]."""
 
-Identifikasi spesies dan klasifikasi ikan dari gambar adalah:
+    model_prompts = {
+        "Neptune-Savant": f"{base_prompt}\n\nAnalisis setiap parameter dengan logika mendalam dan berikan penjelasan rinci berdasarkan observasi visual yang akurat.",
+        "ReefSpark-Lite": f"{base_prompt}\n\nFokus pada analisis cepat dan akurat, berikan deskripsi singkat namun pasti untuk setiap parameter.",
+        "WaveCore-Ultra": f"{base_prompt}\n\nLakukan analisis menyeluruh dengan detail visual maksimal, pastikan skor dan alasan sangat akurat.",
+        "AquaVision-Pro": f"{base_prompt}\n\nGunakan penglihatan canggih untuk mengevaluasi setiap parameter dengan presisi tinggi dan hasil yang meyakinkan.",
+        "TidalFlux-Max": f"{base_prompt}\n\nBerikan analisis kuat dengan penjelasan terstruktur dan penuh keyakinan untuk setiap aspek kesegaran.",
+        "CoralPulse-Lite": f"{base_prompt}\n\nSederhanakan analisis dengan ringkasan cepat, tetap pastikan skor dan alasan akurat tanpa keraguan.",
+        "DeepMind-Classic": f"{base_prompt}\n\nGunakan pendekatan andal untuk menilai kesegaran dengan alasan yang jelas dan tegas.",
+        "OceanVault-Extended": f"{base_prompt}\n\nBerikan analisis ekstensif dengan deskripsi mendalam dan pasti untuk setiap parameter."
+    }
+    
+    return model_prompts.get(model, base_prompt)
+
+def get_analisis_ikan_prompt(model):
+    """Get the prompt for fish species analysis tailored to the model with mandatory table"""
+    base_prompt = """Analisis Spesies Ikan dari Gambar:
+Jika gambar yang diunggah bukan gambar ikan, kembalikan pesan: "Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan." Jika gambar adalah ikan, identifikasi spesies dengan penuh keyakinan.
+
+Analisis spesies ikan berdasarkan gambar dengan fokus pada ciri-ciri visual seperti bentuk tubuh, warna, pola sisik, sirip, dan kepala. Kembalikan hasil dalam format tabel berikut (wajib digunakan, tanpa pengecualian):
 
 | Kategori    | Detail       |
 |-------------|--------------|
@@ -358,7 +370,509 @@ Identifikasi spesies dan klasifikasi ikan dari gambar adalah:
 | Nama Ilmiah | [nama latin] |
 | Famili      | [famili]     |
 
-Analisis dilakukan dengan yakin berdasarkan interpretasi visual dari gambar digital. Sertakan penjelasan singkat tentang ciri-ciri yang digunakan untuk identifikasi, seperti bentuk tubuh, warna, atau pola sisik."""
+Setelah tabel, sertakan penjelasan singkat dan tegas tentang ciri-ciri visual yang digunakan untuk identifikasi, berdasarkan analisis gambar digital. Hindari keraguan atau kalimat tidak pasti."""
+
+    model_prompts = {
+        "Neptune-Savant": f"{base_prompt}\n\nGunakan penalaran mendalam untuk mengidentifikasi spesies secara akurat, berikan detail ciri-ciri spesifik dalam penjelasan.",
+        "ReefSpark-Lite": f"{base_prompt}\n\nLakukan identifikasi cepat dan pasti, berikan penjelasan singkat berdasarkan ciri utama.",
+        "WaveCore-Ultra": f"{base_prompt}\n\nBerikan analisis spesies menyeluruh dengan fokus pada semua ciri visual, pastikan tabel dan penjelasan akurat.",
+        "AquaVision-Pro": f"{base_prompt}\n\nManfaatkan penglihatan canggih untuk identifikasi presisi tinggi, sertakan penjelasan visual yang tajam.",
+        "TidalFlux-Max": f"{base_prompt}\n\nHasilkan identifikasi kuat dengan tabel dan deskripsi terperinci tentang ciri-ciri spesies.",
+        "CoralPulse-Lite": f"{base_prompt}\n\nSederhanakan identifikasi dengan tabel dan ringkasan langsung yang pasti.",
+        "DeepMind-Classic": f"{base_prompt}\n\nGunakan metode andal untuk identifikasi spesies yang solid, pastikan tabel dan penjelasan tegas.",
+        "OceanVault-Extended": f"{base_prompt}\n\nBerikan identifikasi ekstensif dengan tabel dan penjelasan lengkap tentang setiap ciri spesies."
+    }
+    
+    return model_prompts.get(model, base_prompt)
+
+def apply_custom_css():
+    """Apply custom CSS styling"""
+    st.markdown("""
+    <style>
+        ...
+        /* Add this to your existing custom CSS */
+        .n8n-chat-bubble {
+            background-color: #9333EA !important;
+            border-radius: 16px !important;
+        }
+
+        .n8n-chat-widget {
+            border-radius: 16px !important;
+            background-color: #111827 !important;
+        }
+
+        .n8n-chat-input {
+            background-color: #1F2937 !important;
+            border: 1px solid rgba(147, 51, 234, 0.3) !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+def render_visionfish_chat():
+    """Render a custom chat component with VisionFish.io themed UI/UX using @n8n/chat"""
+    # Check if chat should be reset
+    if "chat_reset" not in st.session_state:
+        st.session_state.chat_reset = False
+
+    visionfish_chat_html = """
+    <div class="visionfish-chat-wrapper" id="visionfish-chat-wrapper">
+        <style>
+            /* Custom styling for VisionFish.io chat */
+            .visionfish-chat-wrapper {
+                height: 100%;
+                background: #1A1625; /* Dark purple-gray background */
+                border-radius: 16px;
+                padding: 20px;
+                border: 2px solid #9333EA; /* Purple border matching VisionFish theme */
+                box-shadow: 0 8px 24px rgba(147, 51, 234, 0.2);
+                overflow: hidden;
+                font-family: 'Inter', system-ui, sans-serif;
+                display: flex;
+                flex-direction: column;
+            }
+
+            /* Chat header */
+            .chat-header {
+                background: linear-gradient(135deg, #9333EA, #6B21A8);
+                color: #FFFFFF;
+                padding: 12px 20px;
+                border-radius: 10px 10px 0 0;
+                font-size: 18px;
+                font-weight: 600;
+                text-align: center;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+                position: relative;
+                animation: neonGlow 2s infinite alternate;
+            }
+
+            /* Neon glow effect for header */
+            @keyframes neonGlow {
+                0% {
+                    box-shadow: 0 0 10px rgba(147, 51, 234, 0.3);
+                }
+                100% {
+                    box-shadow: 0 0 20px rgba(147, 51, 234, 0.6);
+                }
+            }
+
+            /* Custom notification style for welcome message */
+            .custom-notification {
+                background: #2A2438; /* Dark purple background */
+                border-radius: 8px;
+                padding: 15px;
+                margin: 10px 0;
+                color: #EDE9FE;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            }
+
+            .custom-notification .title {
+                font-weight: 600;
+                margin-bottom: 5px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .custom-notification p {
+                margin: 5px 0;
+                line-height: 1.5;
+            }
+
+            /* Override default styles with higher specificity */
+            :host {
+                --chat-bg-color: transparent !important;
+                --chat-header-bg-color: transparent !important;
+                --chat-message-bg-color: #2A2438 !important; /* Dark purple background for messages */
+                --chat-message-border-radius: 12px !important;
+                --chat-message-text-color: #EDE9FE !important; /* Light purple text for messages */
+                --chat-message-sender-color: #A78BFA !important; /* Lighter purple for sender name */
+                --chat-message-timestamp-color: #A78BFA !important; /* Lighter purple for timestamp */
+                --chat-input-bg-color: #2A2438 !important; /* Dark purple input background */
+                --chat-input-border-color: rgba(147, 51, 234, 0.5) !important; /* Purple border for input */
+                --chat-input-text-color: #EDE9FE !important; /* Light purple text for input */
+                --chat-button-bg-color: #9333EA !important; /* Match VisionFish purple */
+                --chat-button-hover-bg-color: #7E22CE !important; /* Darker purple on hover */
+                --chat-button-text-color: #FFFFFF !important;
+                --chat-text-color: #EDE9FE !important; /* Light purple text for all chat elements */
+                --chat-font-family: 'Inter', system-ui, sans-serif !important;
+            }
+
+            /* Style for chat messages container */
+            .chat-messages-container {
+                flex-grow: 1;
+                overflow-y: auto;
+                padding: 20px;
+                background: #111827;
+                border-radius: 0 0 10px 10px;
+                margin-bottom: 15px;
+            }
+
+            /* Style for chat messages */
+            .chat-message {
+                background: #2A2438 !important; /* Dark purple background for bot */
+                border-radius: 12px !important;
+                padding: 15px 20px !important;
+                margin: 15px 0 !important;
+                color: #EDE9FE !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+                transition: all 0.3s ease !important;
+                max-width: 80% !important;
+                animation: fadeInScale 0.5s ease-in-out;
+                position: relative;
+            }
+
+            /* Fade-in and scale animation for messages */
+            @keyframes fadeInScale {
+                0% {
+                    opacity: 0;
+                    transform: translateY(10px) scale(0.95);
+                }
+                100% {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+
+            .chat-message:hover {
+                transform: translateY(-2px) !important;
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3) !important;
+            }
+
+            /* Particle effect on hover */
+            .chat-message:hover::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(circle, rgba(147, 51, 234, 0.2) 0%, transparent 70%);
+                opacity: 0.5;
+                pointer-events: none;
+                animation: particleBurst 0.5s ease-out;
+            }
+
+            @keyframes particleBurst {
+                0% {
+                    opacity: 0;
+                    transform: scale(0);
+                }
+                50% {
+                    opacity: 0.5;
+                }
+                100% {
+                    opacity: 0;
+                    transform: scale(1.5);
+                }
+            }
+
+            /* Bot messages specifically */
+            .chat-message-bot {
+                background: linear-gradient(135deg, #2A2438, #3B82F6) !important; /* Gradient from dark purple to blue */
+                border-left: 4px solid #9333EA !important; /* Brighter purple for bot messages */
+                margin-right: 20% !important;
+                border-radius: 12px 12px 12px 0 !important; /* Rounded on right bottom */
+                position: relative;
+            }
+
+            /* Add blue corner to bot messages */
+            .chat-message-bot::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                width: 20px;
+                height: 20px;
+                background: #3B82F6; /* Blue color for the corner */
+                border-radius: 0 0 12px 0;
+                z-index: 1;
+            }
+
+            /* User messages specifically */
+            .chat-message-user {
+                background: #3C3356 !important; /* Slightly lighter purple for user */
+                border-right: 4px solid #A78BFA !important; /* Lighter purple for user */
+                margin-left: 20% !important;
+                margin-right: 0 !important;
+                border-radius: 12px 12px 0 12px !important; /* Rounded on left bottom */
+            }
+
+            /* Sender and timestamp */
+            .chat-message .sender {
+                font-size: 12px;
+                font-weight: 600;
+                margin-bottom: 5px;
+            }
+
+            .chat-message-bot .sender {
+                color: #9333EA !important; /* Brighter purple for bot sender */
+            }
+
+            .chat-message-user .sender {
+                color: #A78BFA !important; /* Lighter purple for user sender */
+            }
+
+            .chat-message .timestamp {
+                font-size: 10px;
+                color: #A78BFA !important;
+                position: absolute;
+                bottom: 5px;
+                right: 10px;
+                opacity: 0.7;
+            }
+
+            /* Style for input field container */
+            .chat-input-container {
+                background: rgba(42, 36, 56, 0.8) !important; /* Dark purple with glassmorphism effect */
+                backdrop-filter: blur(10px); /* Glassmorphism blur effect */
+                border: 1px solid rgba(147, 51, 234, 0.5) !important;
+                border-radius: 10px !important;
+                padding: 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 12px !important;
+                width: 100% !important;
+                margin-top: 16px !important;
+                transition: all 0.3s ease !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            }
+
+            .chat-input-container:focus-within {
+                border: 1px solid rgba(147, 51, 234, 0.8) !important;
+                box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.2) !important;
+            }
+
+            /* Style for the input field itself */
+            .chat-input-container input {
+                background: transparent !important;
+                color: #EDE9FE !important;
+                border: none !important;
+                flex-grow: 1 !important;
+                font-size: 15px !important;
+                outline: none !important;
+                line-height: 1.5 !important;
+            }
+
+            /* Style for placeholder text */
+            .chat-input-container input::placeholder {
+                color: #A78BFA !important;
+                font-style: italic !important;
+            }
+
+            /* Style for send button */
+            .chat-input-container button {
+                background: linear-gradient(135deg, #9333EA, #6B21A8) !important;
+                border-radius: 8px !important;
+                padding: 8px 16px !important;
+                font-weight: 500 !important;
+                transition: all 0.2s ease !important;
+                border: none !important;
+                cursor: pointer !important;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                animation: neonGlow 2s infinite alternate;
+            }
+
+            .chat-input-container button:hover {
+                background: linear-gradient(135deg, #7E22CE, #5B1A8A) !important;
+                box-shadow: 0 2px 8px rgba(147, 51, 234, 0.4) !important;
+                transform: translateY(-1px) scale(1.05) !important; /* Bounce effect */
+            }
+
+            .chat-input-container button:active {
+                transform: translateY(1px) !important;
+            }
+
+            /* Upload button styles */
+            .chat-upload-button {
+                background: rgba(40, 46, 66, 0.9) !important;
+                border-radius: 8px !important;
+                padding: 8px !important;
+                color: #A78BFA !important;
+                border: 1px solid rgba(147, 51, 234, 0.3) !important;
+                transition: all 0.2s ease !important;
+            }
+
+            .chat-upload-button:hover {
+                background: rgba(50, 56, 76, 1) !important;
+                color: #EDE9FE !important;
+                border-color: rgba(147, 51, 234, 0.6) !important;
+                transform: translateY(-1px) scale(1.05) !important; /* Bounce effect */
+            }
+
+            /* Message typing indicator */
+            .chat-typing-indicator {
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                padding: 8px 12px !important;
+                color: #A78BFA !important;
+                font-size: 14px !important;
+                font-style: italic !important;
+            }
+
+            /* Animated dots for typing indicator */
+            .chat-typing-indicator::after {
+                content: '...';
+                display: inline-block;
+                animation: dots 1.5s infinite;
+            }
+
+            @keyframes dots {
+                0%, 20% {
+                    content: '.';
+                }
+                40% {
+                    content: '..';
+                }
+                60%, 100% {
+                    content: '...';
+                }
+            }
+
+            /* Scrollbar customization */
+            .chat-messages-container::-webkit-scrollbar {
+                width: 6px !important;
+            }
+
+            .chat-messages-container::-webkit-scrollbar-track {
+                background: rgba(31, 41, 55, 0.5) !important;
+                border-radius: 10px !important;
+            }
+
+            .chat-messages-container::-webkit-scrollbar-thumb {
+                background: rgba(147, 51, 234, 0.5) !important;
+                border-radius: 10px !important;
+            }
+
+            .chat-messages-container::-webkit-scrollbar-thumb:hover {
+                background: rgba(147, 51, 234, 0.8) !important;
+            }
+            a {
+                color: #A78BFA !important; /* Ungu terang yang sesuai tema VisionFish */
+                text-decoration: none !important; /* Hilangkan garis bawah default */
+                transition: color 0.3s ease !important; /* Efek transisi halus */
+            }
+
+            a:hover {
+                color: #EDE9FE !important; /* Warna lebih terang saat hover */
+                text-decoration: underline !important; /* Garis bawah muncul saat hover */
+            }
+
+            a:visited {
+                color: #9333EA !important; /* Warna ungu sedikit lebih gelap untuk link yang sudah dikunjungi */
+            }
+        </style>
+        <div class="chat-header">VisionFish Assistant</div>
+        <div class="chat-messages-container" id="chat-messages-container">
+            <div class="custom-notification">
+                <div class="title">🤖 VisionFish Assistant</div>
+                <p>Asisten ini dapat membantu Anda dengan pertanyaan seputar perikanan, analisis species ikan, dan tips kesegaran ikan.</p>
+                <p>Anda juga dapat mengunggah gambar ikan untuk dianalisis langsung melalui chat.</p>
+            </div>
+        </div>
+        <script type="module">
+            import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
+
+            // Custom options for VisionFish.io integration
+            const chatOptions = {
+                webhookUrl: 'https://primary-production-c7f0.up.railway.app/webhook/d49a228d-703d-4a93-8e7a-ed173500fc6e/chat',
+                container: document.querySelector('.chat-messages-container'),
+                title: 'VisionFish Assistant',
+                placeholder: 'Tanyakan tentang analisis ikan...',
+                welcomeMessage: '', // Empty welcome message since we use custom notification
+                fileUpload: {
+                    enabled: true,
+                    acceptedFileTypes: ['image/jpeg', 'image/png', 'image/gif'],
+                },
+                initialState: 'open' // Ensure chat is always open
+            };
+
+            // Function to initialize or reset the chat
+            function initializeChat() {
+                // Clear existing chat content if any
+                const wrapper = document.querySelector('.chat-messages-container');
+                wrapper.innerHTML = `
+                    <div class="custom-notification">
+                        <div class="title">🤖 VisionFish Assistant Info</div>
+                        <p>Asisten ini dapat membantu Anda dengan pertanyaan seputar perikanan, analisis species ikan, dan tips kesegaran ikan.</p>
+                        <p>Tekan icon "💬" di bawah ini untuk memulai chat.</p>
+                    </div>
+                `;
+
+                // Re-create the chat instance
+                const chatInstance = createChat(chatOptions);
+
+                // Auto-scroll to bottom on new messages
+                chatInstance.addEventListener('message', (event) => {
+                    const chatContainer = document.querySelector('.chat-messages-container');
+                    if (chatContainer) {
+                        setTimeout(() => {
+                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }, 100);
+                    }
+                });
+
+                // Ensure the input container is always visible
+                const inputContainer = document.querySelector('.chat-input-container');
+                if (inputContainer) {
+                    inputContainer.style.display = 'flex';
+                    inputContainer.style.opacity = '1';
+                    inputContainer.style.visibility = 'visible';
+                }
+
+                // Apply custom styles after a short delay to ensure elements are rendered
+                setTimeout(() => {
+                    const messages = document.querySelectorAll('.chat-message');
+                    messages.forEach(message => {
+                        if (message.classList.contains('chat-message-bot')) {
+                            message.style.background = 'linear-gradient(135deg, #2A2438, #3B82F6)';
+                            message.style.borderLeft = '4px solid #9333EA';
+                            message.style.marginRight = '20%';
+                            message.style.borderRadius = '12px 12px 12px 0';
+                        } else if (message.classList.contains('chat-message-user')) {
+                            message.style.background = '#3C3356';
+                            message.style.borderRight = '4px solid #A78BFA';
+                            message.style.marginLeft = '20%';
+                            message.style.marginRight = '0';
+                            message.style.borderRadius = '12px 12px 0 12px';
+                        }
+                    });
+                }, 100);
+            }
+
+            // Initialize chat on page load
+            document.addEventListener('DOMContentLoaded', () => {
+                initializeChat();
+            });
+
+            // Listen for reset signal from Streamlit
+            window.addEventListener('message', (event) => {
+                if (event.data === 'resetChat') {
+                    console.log('Resetting chat...');
+                    initializeChat();
+                }
+            });
+        </script>
+    </div>
+    """
+    # Render the chat component in Streamlit
+    import streamlit.components.v1 as components
+    components.html(visionfish_chat_html, height=600, scrolling=True)
+
+    # If chat reset is requested, send a message to the client to reset the chat
+    if st.session_state.chat_reset:
+        st.session_state.chat_reset = False
+        # Send a message to the client to reset the chat
+        st.markdown(
+            """
+            <script>
+                window.parent.postMessage('resetChat', '*');
+            </script>
+            """,
+            unsafe_allow_html=True
+        )
 
 def setup_page_config():
     """Configure page settings"""
@@ -485,6 +999,33 @@ def apply_custom_css():
             border: 1px solid rgba(147, 51, 234, 0.1);
         }  
 
+                /* Chat container */
+        .chat-container {
+            background: rgba(31, 41, 55, 0.8);
+            border-radius: 16px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(147, 51, 234, 0.2);
+            height: 600px;  /* Set fixed height for the chat container */
+            position: relative;
+        }
+
+        /* Add this to your apply_custom_css function */
+        .n8n-chat-bubble {
+            background-color: #9333EA !important;
+            border-radius: 16px !important;
+        }
+
+        .n8n-chat-widget {
+            border-radius: 16px !important;
+            background-color: #111827 !important;
+        }
+
+        .n8n-chat-input {
+            background-color: #1F2937 !important;
+            border: 1px solid rgba(147, 51, 234, 0.3) !important;
+        }
+                        
         /* Dashboard Title */  
         .dashboard-title {  
             color: #9333EA;  
@@ -651,12 +1192,12 @@ def apply_custom_css():
         }
         
         /* Chat container */
-        .chat-container {
-            background: rgba(31, 41, 55, 0.8);
+        /* n8n chat container */
+        .n8n-chat-wrapper {
+            height: 100%;
+            position: relative;
             border-radius: 16px;
-            padding: 20px;
-            margin: 20px 0;
-            border: 1px solid rgba(147, 51, 234, 0.2);
+            overflow: hidden;
         }
         
         /* Image upload area */
@@ -847,244 +1388,849 @@ def apply_custom_css():
 def render_prompt_buttons():
     """Render the prompt selection buttons"""
     st.markdown("""
-        <div class="dashboard-title" style="margin-bottom: 15px;">🤖 Pilih Jenis Analisis</div>
+        <div class="dashboard-title" style="margin-bottom: 15px;">🤖 Vision Fish.io</div>
     """, unsafe_allow_html=True)
-    
-    # Create buttons in a more attractive layout
-    col1, col2 = st.columns(2)
-    
-    selected_prompt = None
-    
-    with col1:
-        if st.button("\U0001F41F Analisis Spesies Ikan", use_container_width=True):
-            selected_prompt = get_analisis_ikan_prompt()
-
-    with col2:
-        if st.button("\U0001F31F Analisis Kesegaran Ikan", use_container_width=True):
-            selected_prompt = get_freshness_prompt()
-
-    return selected_prompt
 
 def render_auth_screen():
-    """Render the authentication screen"""
+    """Render the authentication screen with enhanced UI/UX"""
+    # Custom CSS for the authentication screen
     st.markdown("""
-        <div class="auth-container">
-            <div class="auth-title">🔐 Access VisionFish.io</div>
-            <p style="color: #E5E7EB;">Enter your access token to use all features of VisionFish.io</p>
-        </div>
+    <style>
+        .auth-container {
+            background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.9));
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 12px 30px rgba(147, 51, 234, 0.15);
+            margin: 50px auto;
+            max-width: 500px;
+            text-align: center;
+            border: 1px solid rgba(147, 51, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+            animation: fadeIn 1s ease-in-out;
+        }
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(147, 51, 234, 0.1) 0%, transparent 70%);
+            opacity: 0.3;
+            z-index: 0;
+        }
+        .auth-title {
+            color: #9333EA;
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            animation: slideIn 0.8s ease-out;
+        }
+        .auth-subtitle {
+            color: #D1D5DB;
+            font-size: 1em;
+            margin-bottom: 30px;
+            line-height: 1.5;
+            animation: fadeIn 1.2s ease-in-out;
+        }
+        .auth-input-container {
+            position: relative;
+            margin-bottom: 20px;
+            z-index: 1;
+        }
+        .auth-input {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(147, 51, 234, 0.3);
+            background: rgba(31, 41, 55, 0.8);
+            color: #E5E7EB;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+        .auth-input:focus {
+            outline: none;
+            border-color: #9333EA;
+            box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.2);
+        }
+        .auth-input::placeholder {
+            color: #9CA3AF;
+            font-style: italic;
+        }
+        .login-btn {
+            background: linear-gradient(135deg, #9333EA, #6B21A8);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3);
+            animation: pulse 2s infinite;
+        }
+        .login-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(147, 51, 234, 0.4);
+            background: linear-gradient(135deg, #7E22CE, #5B1A8A);
+        }
+        .login-btn:active {
+            transform: translateY(1px);
+        }
+        .message-box {
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideIn 0.5s ease-out;
+        }
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #EF4444;
+            color: #FECACA;
+        }
+        .success-message {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 4px solid #10B981;
+            color: #A7F3D0;
+        }
+        /* Animations */
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        @keyframes slideIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3); }
+            50% { box-shadow: 0 4px 25px rgba(147, 51, 234, 0.5); }
+            100% { box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3); }
+        }
+        /* Hide Streamlit's default "Press Enter to submit form" message */
+        [data-testid="stFormSubmitButton"] + div {
+            display: none !important;
+        }
+        /* Responsive adjustments for mobile */
+        @media (max-width: 768px) {
+            .auth-container {
+                padding: 20px;
+                margin: 20px auto;
+                max-width: 90%;
+            }
+            .auth-title {
+                font-size: 1.5em;
+                gap: 8px;
+            }
+            .auth-subtitle {
+                font-size: 0.9em;
+                margin-bottom: 20px;
+            }
+            .auth-input {
+                padding: 10px 12px;
+                font-size: 0.9em;
+            }
+            .login-btn {
+                padding: 10px 20px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
     """, unsafe_allow_html=True)
-    
-    # Token authentication in main area with improved layout
+
+def render_auth_screen():
+    # Bagian CSS tetap sama, tidak diubah
+
+    # Authentication screen layout
+    st.markdown("""
+    <div class="auth-container">
+        <div class="auth-title">
+            <span>🔐</span>VisionFish.io
+        </div>
+        <p class="auth-subtitle">Enter your access token to unlock all features of VisionFish.io</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Inisialisasi session state
+    if 'is_processing' not in st.session_state:
+        st.session_state.is_processing = False
+    if 'is_authenticated' not in st.session_state:
+        st.session_state.is_authenticated = False
+
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        access_token = st.text_input("Enter access token:", type="password")
-        
-        if st.button("Login", key="login_button"):
-            # Check if token is valid
-            is_authenticated = access_token in valid_tokens
-            st.session_state.is_authenticated = is_authenticated
-            st.session_state.token_input_submitted = True
-            
-            if not is_authenticated:
-                st.error("Invalid token. Please try again.")
-            else:
-                st.success("✅ Authentication successful!")
-                st.rerun()
-        
-        # Add a request link for getting a token with better styling
-        st.markdown("""
-        <div style="text-align: center; margin-top: 15px;">
-            <a href="https://wa.me/0895619313339?text=Halo%20bang%2C%20saya%20ingin%20mendapatkan%20token%20akses%20untuk%20VisionFish.io" 
-               style="color: #A855F7; text-decoration: none; font-weight: 500;">
-               Request access token <span style="font-size: 1.2em;">→</span>
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.form(key="login_form"):
+            access_token = st.text_input(
+                "Enter access token:",
+                type="password",
+                placeholder="Your access token here...",
+                label_visibility="collapsed",
+                key="access_token_input"
+            )
+            submit_button = st.form_submit_button(label="Login", use_container_width=True)
+
+            # Placeholder untuk pesan, diletakkan di dalam form setelah tombol
+            message_container = st.empty()
+
+            if submit_button and not st.session_state.is_processing:
+                # Tandai bahwa proses sedang berlangsung
+                st.session_state.is_processing = True
+                with st.spinner("Authenticating..."):
+                    import time
+                    time.sleep(1)  # Simulasi delay
+                    is_authenticated = access_token in valid_tokens
+                    st.session_state.is_authenticated = is_authenticated
+                    
+                    if not is_authenticated:
+                        # Tampilkan pesan error di placeholder
+                        message_container.markdown(
+                            '<div class="message-box error-message">❌ Invalid token. Please try again.</div>',
+                            unsafe_allow_html=True
+                        )
+                        render_unauthenticated_content()
+                    else:
+                        # Tampilkan pesan sukses di placeholder
+                        message_container.markdown(
+                            '<div class="message-box success-message">✅ Authentication successful!</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.rerun()
+                
+                # Reset status pemrosesan setelah selesai
+                st.session_state.is_processing = False
+
 
 def render_unauthenticated_content():
-    """Render content for unauthenticated users"""
-    # Display a compelling header to attract users
+    """Render content for unauthenticated users with enhanced UI/UX"""
+    # Custom CSS for the unauthenticated content
     st.markdown("""
-    <div class="content-wrapper">
-        <h1 class="main-title">VisionFish.io</h1>
-        <p style="text-align: center; font-size: 1.2em; margin-bottom: 30px; max-width: 700px; margin-left: auto; margin-right: auto;">
-            Platform analisis ikan berbasis AI untuk membantu industri perikanan Indonesia
+    <style>
+        .content-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+        .main-title {
+            background: linear-gradient(120deg, #9333EA, #6B21A8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: float 3s ease-in-out infinite;
+            font-weight: 800;
+            font-size: 3.5em;
+            margin: 20px auto;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .main-subtitle {
+            color: #D1D5DB;
+            font-size: 1.2em;
+            margin: 0 auto 40px auto;
+            max-width: 800px;
+            line-height: 1.6;
+            animation: fadeIn 1.5s ease-in-out;
+        }
+        .dashboard-title {
+            color: #9333EA;
+            font-size: 1.8em;
+            font-weight: 700;
+            margin: 40px 0 20px 0;
+            text-align: center;
+            border-bottom: 2px solid rgba(147, 51, 234, 0.3);
+            padding-bottom: 10px;
+            animation: slideIn 1s ease-out;
+        }
+        .feature-box {
+            background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.9));
+            border-radius: 16px;
+            padding: 25px;
+            margin: 15px 0;
+            border: 1px solid rgba(147, 51, 234, 0.3);
+            transition: all 0.3s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        .feature-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(147, 51, 234, 0.2);
+            border: 1px solid rgba(147, 51, 234, 0.5);
+        }
+        .feature-box::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(147, 51, 234, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .feature-box:hover::before {
+            opacity: 1;
+        }
+        .feature-icon {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #9333EA, #6B21A8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: float 3s ease-in-out infinite;
+        }
+        .feature-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #A855F7;
+        }
+        .feature-desc {
+            color: #D1D5DB;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+        .info-card {
+            background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.9));
+            border-radius: 16px;
+            padding: 20px;
+            border: 2px solid rgba(147, 51, 234, 0.3);  /* Uniform border */
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            margin: 15px 0;
+            transition: all 0.3s ease;
+            animation: fadeInUp 1s ease-out;
+        }
+        .info-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(147, 51, 234, 0.15);
+            border: 2px solid rgba(147, 51, 234, 0.5);
+        }
+        .analysis-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #A855F7;
+            margin-bottom: 15px;
+        }
+        .analysis-image {
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            transition: transform 0.3s ease;
+        }
+        .analysis-image:hover {
+            transform: scale(1.05);
+        }
+        .analysis-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            color: #E5E7EB;
+        }
+        .analysis-table th, .analysis-table td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(147, 51, 234, 0.2);
+        }
+        .analysis-table th {
+            color: #A855F7;
+            font-weight: 600;
+        }
+        .freshness-score {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #A855F7;
+        }
+        .freshness-status {
+            font-size: 1.1em;
+            font-weight: 500;
+            color: #10B981;
+        }
+        .testimonial-quote {
+            font-size: 1em;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            font-style: italic;
+            color: #E5E7EB;
+        }
+        .testimonial-name {
+            font-weight: 600;
+            color: #A855F7;
+        }
+        .testimonial-role {
+            font-size: 0.9em;
+            color: #CBD5E0;
+        }
+        .quick-link {
+            color: #A855F7;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            animation: fadeIn 1.5s ease-in-out;
+        }
+        .quick-link:hover {
+            background: rgba(147, 51, 234, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(147, 51, 234, 0.2);
+        }
+        .quick-link span {
+            font-size: 1.2rem;
+        }
+        .cta-button {
+            background: linear-gradient(135deg, #9333EA, #6B21A8);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3);
+            animation: pulse 2s infinite;
+        }
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(147, 51, 234, 0.4);
+            background: linear-gradient(135deg, #7E22CE, #5B1A8A);
+        }
+        /* Animations */
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        @keyframes fadeInUp {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0px); }
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3); }
+            50% { box-shadow: 0 4px 25px rgba(147, 51, 234, 0.5); }
+            100% { box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3); }
+        }
+        /* Responsive adjustments for mobile */
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 2.5em;
+            }
+            .main-subtitle {
+                font-size: 1em;
+                margin-bottom: 30px;
+            }
+            .dashboard-title {
+                font-size: 1.4em;
+                margin: 30px 0 15px 0;
+            }
+            .feature-box {
+                padding: 20px;
+            }
+            .feature-icon {
+                font-size: 2em;
+            }
+            .feature-title {
+                font-size: 1.1em;
+            }
+            .feature-desc {
+                font-size: 0.9em;
+            }
+            .info-card {
+                padding: 15px;
+            }
+            .analysis-title {
+                font-size: 1.1em;
+            }
+            .freshness-score {
+                font-size: 2em;
+            }
+            .freshness-status {
+                font-size: 0.9em;
+            }
+            .analysis-table th, .analysis-table td {
+                padding: 8px;
+                font-size: 0.9em;
+            }
+            .testimonial-quote {
+                font-size: 0.9em;
+            }
+            .testimonial-name {
+                font-size: 0.95em;
+            }
+            .testimonial-role {
+                font-size: 0.85em;
+            }
+            .quick-link {
+                font-size: 0.9em;
+                padding: 8px 12px;
+            }
+            .quick-link span {
+                font-size: 1em;
+            }
+            .cta-button {
+                padding: 10px 20px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <style>
+        .custom-header {
+            font-size: 24px;
+            color: #6A0DAD;  /* Warna ungu */
+            margin: 0;
+            text-align: center;  /* Memusatkan teks */
+        }
+        .custom-subtitle {
+            font-size: 16px;
+            color: #FFFFFF;
+            text-align: center;  /* Memusatkan subtitle juga agar seragam */
+        }
+        @media (max-width: 768px) {
+            .custom-header {
+                font-size: 24px;
+                color: #9333EA
+                margin: 0;
+                text-align: center !important;
+            }
+            .custom-subtitle {
+                font-size: 14px;
+            }
+        }
+    </style>
+    <div>
+        <h1 class="custom-header">VisionFish.io</h1>
+        <p class="custom-subtitle">
+            Solusi analisis ikan terdepan untuk mendukung industri perikanan dengan teknologi OpenCV
         </p>
     </div>
     """, unsafe_allow_html=True)
-    
+
+    # Quick Links Section
+    st.markdown("""
+    <div class="content-wrapper">
+        <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 40px;">
+            <a href="https://syarifrizik.github.io/coming-soon/" target="_blank" class="quick-link">
+                <span>📖</span> Penggunaan
+            </a>
+            <a href="https://drive.google.com/drive/u/1/folders/1afYnOjsv9y95UPDviKoZf0YTe5pHFzWl" target="_blank" class="quick-link">
+                <span>📚</span> Dokumentasi
+            </a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     # Feature showcase with improved layout
-    st.markdown("<h2 class='dashboard-title' style='margin-top: 30px;'>Fitur Unggulan</h2>", unsafe_allow_html=True)
-    
+    st.markdown("<h2 class='dashboard-title'>Fitur Unggulan</h2>", unsafe_allow_html=True)
+
     col1, col2 = st.columns(2)
-    
+
     with col1:
         st.markdown("""
         <div class="feature-box">
             <div class="feature-icon">🔍</div>
             <div class="feature-title">Identifikasi Spesies</div>
-            <p>Identifikasi spesies ikan secara instan dari gambar dengan klasifikasi detail</p>
+            <p class="feature-desc">Kenali spesies ikan secara instan dari gambar dengan akurasi tinggi</p>
         </div>
         """, unsafe_allow_html=True)
-        
+
         st.markdown("""
         <div class="feature-box">
             <div class="feature-icon">📊</div>
             <div class="feature-title">Visualisasi Data</div>
-            <p>Grafik dan laporan canggih untuk analisis kualitas ikan yang komprehensif</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="feature-box">
-            <div class="feature-icon">🌊</div>
-            <div class="feature-title">Analisis Kesegaran</div>
-            <p>Tentukan tingkat kesegaran ikan dengan presisi ilmiah</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="feature-box">
-            <div class="feature-icon">📱</div>
-            <div class="feature-title">Monitoring Real-time</div>
-            <p>Pantau kualitas air secara langsung dari stasiun pemantauan</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Showcase a sample analysis to entice users
-    st.markdown("<h2 class='dashboard-title' style='margin-top: 40px;'>Contoh Analisis</h2>", unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.markdown("""
-        <style>
-            .info-card {
-                background: rgba(147, 51, 234, 0.1);
-                padding: 20px;
-                border-radius: 10px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-        </style>
-        <div class="info-card">
-            <div style="font-size: 1.3em; font-weight: 600; color: #A855F7; margin-bottom: 15px;">Analisis Spesies</div>
-            <div style="margin-bottom: 15px;">
-                <img src="https://media.istockphoto.com/id/1299077582/id/foto/ikan-tongkol-atau-tongkol-kecil-atau-ikan-tongkol-yang-terisolasi-pada-latar-belakang-putih.jpg?s=612x612&w=0&k=20&c=6TxZSHaL3nxhzxm_7ArAQpRw81jkCWQBWN8Yg-7_TVk=" 
-                style="width: 100%; border-radius: 10px; margin-bottom: 15px;">
-            </div>
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                <tr>
-                    <th style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">Nama Lokal</th>
-                    <td style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">Tongkol</td>
-                </tr>
-                <tr>
-                    <th style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">Nama Ilmiah</th>
-                    <td style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">Euthynnus affinis</td>
-                </tr>
-                <tr>
-                    <th style="padding: 8px;">Famili</th>
-                    <td style="padding: 8px;">Scombridae</td>
-                </tr>
-            </table>
+            <p class="feature-desc">Dapatkan grafik dan laporan mendalam untuk analisis kualitas ikan</p>
         </div>
         """, unsafe_allow_html=True)
 
     with col2:
         st.markdown("""
-        <style>
-            .info-card {
-                background: rgba(147, 51, 234, 0.1);
-                padding: 20px;
-                border-radius: 10px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-        </style>
-        <div class="info-card">
-            <div style="font-size: 1.3em; font-weight: 600; color: #A855F7; margin-bottom: 15px;">Analisis Kesegaran</div>
-            <div style="text-align: center; margin-bottom: 15px;">
-                <div style="font-size: 2.5em; font-weight: 700; color: #A855F7;">8.5/10</div>
-                <div style="font-size: 1.1em; font-weight: 500; color: #10B981;">Masih Baik (Good)</div>
-            </div>
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                <tr>
-                    <th style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">Mata</th>
-                    <td style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">9/10</td>
-                </tr>
-                <tr>
-                    <th style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">Insang</th>
-                    <td style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">8/10</td>
-                </tr>
-                <tr>
-                    <th style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">Lendir</th>
-                    <td style="padding: 8px; border-bottom: 1px solid rgba(147, 51, 234, 0.2);">8/10</td>
-                </tr>
-                <tr>
-                    <th style="padding: 8px;">Daging</th>
-                    <td style="padding: 8px;">9/10</td>
-                </tr>
-            </table>
+        <div class="feature-box">
+            <div class="feature-icon">🌊</div>
+            <div class="feature-title">Analisis Kesegaran</div>
+            <p class="feature-desc">Ukur tingkat kesegaran ikan dengan presisi ilmiah</p>
         </div>
         """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="feature-box">
+            <div class="feature-icon">📱</div>
+            <div class="feature-title">Monitoring Real-time</div>
+            <p class="feature-desc">Pantau kualitas air secara langsung dari stasiun pemantauan</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Showcase a sample analysis to entice users
+    st.markdown("<h2 class='dashboard-title'>Contoh Analisis</h2>", unsafe_allow_html=True)
+
+    # CSS dan HTML dalam satu blok
+    st.markdown("""
+    <style>
+    .info-card {
+        border: 2px solid #8a2be2;
+        border-radius: 10px;
+        padding: 15px;
+        background-color: #1e1e2f;
+        color: #ffffff;
+        min-height: 400px; /* Menyamakan tinggi minimum card */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between; /* Membuat konten terdistribusi dengan baik */
+    }
+    .analysis-title {
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #8a2be2;
+    }
+    .analysis-image {
+        width: 100%;
+        height: 150px; /* Menyamakan tinggi gambar */
+        object-fit: cover; /* Memastikan gambar tidak terdistorsi */
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    .freshness-score {
+        font-size: 28px;
+        font-weight: bold;
+        color: #ffffff;
+    }
+    .freshness-status {
+        font-size: 16px;
+        color: #00cc00;
+        margin-top: 5px;
+    }
+    .data-box {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px;
+        flex-grow: 1; /* Membuat data-box mengisi ruang yang tersedia */
+    }
+    .data-item {
+        display: flex;
+        justify-content: space-between;
+        background-color: #2a2a3d;
+        padding: 10px 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        cursor: default;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .data-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    .data-label {
+        font-weight: bold;
+        color: #ffffff;
+    }
+    .data-value {
+        color: #ffffff;
+    }
+    .green-textbox {
+        justify-content: space-between; /* Mengatur teks dan ikon */
+        align-items: center; /* Vertikal tengah */
+        border: 2px solid #00cc00;
+        background-color: #2a2a3d;
+    }
+    .data-text {
+        color: #00cc00;
+        font-weight: bold;
+    }
+    .arrow-icon {
+        color: #00cc00;
+        font-weight: bold;
+        font-size: 12px; /* Memperkecil ikon */
+    }
+    .login-text {
+        font-size: 14px;
+        font-style: italic;
+        text-align: center;
+        margin-top: 10px;
+    }
+    .gray-text {
+        color: #a9a9a9; /* Warna abu-abu untuk kata yang tidak terang */
+    }
+    .white-text {
+        color: #ffffff; /* Warna putih untuk kata yang lebih menonjol */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Kolom 1 dan Kolom 2
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        st.markdown("""
+        <div class="info-card">
+            <div>
+                <div class="analysis-title">Analisis Spesies</div>
+                <div>
+                    <img src="https://thegorbalsla.com/wp-content/uploads/2019/08/Ciri-Ciri-Ikan-Tongkol.jpg" 
+                    class="analysis-image">
+                </div>
+                <div class="data-box">
+                    <div class="data-item">
+                        <span class="data-label">Nama Lokal</span>
+                        <span class="data-value">Tongkol</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">Nama Ilmiah</span>
+                        <span class="data-value">Euthynnus affinis</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">Famili</span>
+                        <span class="data-value">Scombridae</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div class="info-card">
+            <div>
+                <div class="analysis-title">Analisis Kesegaran</div>
+                <div>
+                    <img src="https://thegorbalsla.com/wp-content/uploads/2019/08/Ciri-Ciri-Ikan-Tongkol.jpg" 
+                    class="analysis-image">
+                </div>
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <div class="freshness-score">8.5/10</div>
+                    <div class="freshness-status">Masih Baik (Good)</div>
+                </div>
+                <div class="data-box">
+                    <div class="data-item green-textbox">
+                        <span class="data-text">Lihat Parameter Penilaian</span>
+                        <span class="arrow-icon">></span>
+                    </div>
+                    <div class="login-text">
+                        <span class="gray-text">*Silahkan login  terlebih dahulu</span> 
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    # CSS untuk testimonial section
+    st.markdown("""
+    <style>
+    .dashboard-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: #ffffff;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .testimonial-card {
+        border: 2px solid #8a2be2; /* Border ungu seperti card sebelumnya */
+        border-radius: 10px;
+        padding: 15px;
+        background-color: #1e1e2f;
+        color: #ffffff;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .testimonial-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    .testimonial-quote {
+        font-size: 16px;
+        font-style: italic;
+        color: #d3d3d3;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    .testimonial-name {
+        font-size: 18px;
+        font-weight: bold;
+        color: #8a2be2; /* Warna ungu untuk nama */
+        text-align: center;
+    }
+    .testimonial-role {
+        font-size: 14px;
+        color: #ffffff; /* Warna putih untuk role */
+        text-align: center;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     # Add a testimonial section
-    st.markdown("<h2 class='dashboard-title' style='margin-top: 40px;'>Digunakan Oleh</h2>", unsafe_allow_html=True)
-    
+    st.markdown("<h2 class='dashboard-title'>Digunakan Oleh</h2>", unsafe_allow_html=True)
+
     cols = st.columns(3)
-    
+
     testimonials = [
         {
-            "quote": "VisionFish.io membantu mempercepat proses analisis kualitas ikan kami dengan signifikan.",
+            "quote": "VisionFish.io mempercepat analisis kualitas ikan kami secara signifikan.",
             "name": "PT Samudra Sejahtera",
             "role": "Distributor Ikan"
         },
         {
-            "quote": "Identifikasi spesies yang akurat membantu kami mengelola stok dengan lebih efisien.",
+            "quote": "Identifikasi spesies yang akurat membantu kami mengelola stok lebih efisien.",
             "name": "TPI Sungai Rengas",
             "role": "Tempat Pelelangan Ikan"
         },
         {
-            "quote": "Data kualitas air real-time membantu kami membuat keputusan yang lebih baik untuk budidaya ikan.",
-            "name": "Kelompok Nelayan Maju Bersama",
+            "quote": "Data kualitas air real-time sangat mendukung budidaya ikan saya.",
+            "name": "Eddy Saputra",
             "role": "Nelayan Lokal"
         }
     ]
-    
+
     for i, col in enumerate(cols):
         with col:
             testimonial = testimonials[i]
             st.markdown(f"""
-            <div class="info-card" style="height: 100%;">
-                <div style="font-size: 1em; line-height: 1.5; margin-bottom: 15px; font-style: italic; color: #E5E7EB;">
-                    "{testimonial["quote"]}"
+            <div class="testimonial-card">
+                <div class="testimonial-quote">
+                    "{testimonial['quote']}"
                 </div>
-                <div style="font-weight: 600; color: #A855F7;">{testimonial["name"]}</div>
-                <div style="font-size: 0.9em; color: #CBD5E0;">{testimonial["role"]}</div>
+                <div class="testimonial-name">{testimonial['name']}</div>
+                <div class="testimonial-role">{testimonial['role']}</div>
             </div>
             """, unsafe_allow_html=True)
-    
-    # Show map in sidebar even when not authenticated
-    with st.sidebar:
-        st.markdown("""
-        <div style="margin-top: 30px;">
-            <div class="dashboard-title">🗺️ Peta Sungai Rengas</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.components.v1.html('''
-        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63837.090342372285!2d109.16168223152577!3d-0.016918696446186224!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e1d5f74c5e63725%3A0x83498a713bf64183!2sSungai%20Rengas%2C%20Kec.%20Sungai%20Kakap%2C%20Kabupaten%20Kubu%20Raya%2C%20Kalimantan%20Barat!5e0!3m2!1sid!2sid!4v1735501581541!5m2!1sid!2sid" width="100%" height="450" style="border:0; border-radius: 16px; box-shadow: 0 8px 30px rgba(147, 51, 234, 0.2);" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-        ''', height=470)
-        
-        # Add contact info in sidebar
-        st.markdown("""
-        <div class="info-card" style="margin-top: 20px;">
-            <div style="font-size: 1.1em; font-weight: 600; color: #A855F7; margin-bottom: 10px;">Kontak Kami</div>
-            <p style="margin-bottom: 10px;">Untuk informasi lebih lanjut tentang VisionFish.io atau untuk mendapatkan akses:</p>
-            <a href="https://wa.me/0895619313339" style="display: inline-flex; align-items: center; color: #E5E7EB; text-decoration: none; font-weight: 500;">
-                <span style="background: #25D366; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; margin-right: 8px;">
-                    <span style="color: white; font-size: 14px;">✓</span>
-                </span>
-                WhatsApp Support
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
+
+
 
 def render_dashboard():
     """Render the water quality dashboard with enhanced UI"""
@@ -1096,8 +2242,14 @@ def render_dashboard():
             }
         </style>
         <div class="content-wrapper">
-            <div class="icon">
-                🐟
+            <div style="text-align: center; padding: 20px 0; margin-bottom: 20px;">
+                <div style="font-size: 3em; margin-bottom: 10px;">🐟</div>
+                <div style="font-size: 1.4em; font-weight: 600; color: #A855F7; margin-bottom: 10px;">
+                    Vision Fish.io Assistant
+                </div>
+                <p style="color: #CBD5E0;">
+                    Tanyakan tentang ikan, analisis gambar, atau pantau kualitas air
+                </p>
             </div>
             <h1 class="custom-title">
                 VisionFish.io
@@ -1114,44 +2266,184 @@ def render_dashboard():
         </div>
     """, unsafe_allow_html=True)
 
+    # Function to fetch the latest data from ThingSpeak
+    def fetch_latest_thingspeak_data(channel_id, field):
+        api_url = f"https://api.thingspeak.com/channels/{channel_id}/fields/{field}.json?results=1"
+        try:
+            response = requests.get(api_url)
+            response.raise_for_status()
+            data = response.json()
+            if not data['feeds']:
+                return None
+            latest_entry = data['feeds'][-1]
+            field_key = f'field{field}'
+            value = float(latest_entry[field_key]) if field_key in latest_entry and latest_entry[field_key] is not None else None
+            return value
+        except requests.RequestException as e:
+            st.error(f"Error fetching data for field {field}: {e}")
+            return None
+
+    # Define a more sophisticated color and status logic
+    def get_status_info(value, optimal_range, warning_range, unit):
+        if value is None:
+            return "#6B7280", "No Data", "⚪"  # Gray for no data with neutral icon
+        
+        # Status colors inspired by water quality standards
+        optimal_color = "#34D399"  # Soft teal for optimal (better than pure green)
+        warning_color = "#FBBF24"  # Warm yellow for warning
+        critical_color = "#F87171"  # Soft red for critical
+        
+        if optimal_range[0] <= value <= optimal_range[1]:
+            return optimal_color, "Optimal", "✅"
+        elif warning_range[0] <= value <= warning_range[1]:
+            return warning_color, "Perhatian", "⚠️"
+        else:
+            return critical_color, "Kritis", "❌"
+
     # Dashboard metrics with attractive cards
-    st.markdown("<div class='section-title'>📊 Dashboard Kualitas Air</div>", unsafe_allow_html=True)
-    
+    st.markdown("""
+    <div class='section-title'>
+        <span>📊</span> Dashboard Kualitas Air
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Custom CSS for enhanced UI/UX
+    st.markdown("""
+    <style>
+        .section-title {
+                color: #9333EA;
+                font-size: 1.8em;
+                font-weight: 700;
+                margin: 30px 0 20px 0;
+                text-align: left;
+                border-bottom: 2px solid rgba(147, 51, 234, 0.3);
+                padding-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            /* Responsive adjustments for mobile */
+            @media (max-width: 768px) {
+                .section-title {
+                    font-size: 1.2em !important;  /* Smaller font size on mobile */
+                    margin: 20px 0 15px 0 !important;  /* Reduce margin */
+                    padding-bottom: 8px !important;  /* Reduce padding */
+                    gap: 8px !important;  /* Reduce gap between icon and text */
+                }
+                .section-title::before {
+                    font-size: 1.2em !important;  /* Adjust icon size on mobile */
+                }
+            }
+        .metric-card {
+            background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.9));
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(147, 51, 234, 0.2);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            text-align: center;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(147, 51, 234, 0.25);
+            border: 1px solid rgba(147, 51, 234, 0.5);
+        }
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(147, 51, 234, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .metric-card:hover::before {
+            opacity: 1;
+        }
+        .metric-title {
+            color: #D1D5DB;
+            font-size: 0.95em;
+            font-weight: 500;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin: 5px 0;
+            transition: color 0.3s ease;
+        }
+        .metric-status {
+            font-size: 0.85em;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Define your ThingSpeak Channel ID
+    channel_id = 2796290
+
+    # Fetch latest data for each parameter
+    temperature = fetch_latest_thingspeak_data(channel_id, 1)  # Field 1: Suhu Air (°C)
+    ph = fetch_latest_thingspeak_data(channel_id, 2)           # Field 2: pH
+    dissolved_oxygen = fetch_latest_thingspeak_data(channel_id, 3)  # Field 3: Oksigen Terlarut (mg/L)
+    turbidity = fetch_latest_thingspeak_data(channel_id, 4)    # Field 4: Kekeruhan (NTU)
+
     metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
-    
+
     with metrics_col1:
-        st.markdown("""
-        <div class="dashboard-card">
-            <div style="color: #CBD5E0; font-size: 0.9em;">Suhu Air</div>
-            <div class="dashboard-value">Coming soon</div>
-            <div style="color: #10B981; font-size: 0.8em;">Optimal</div>
+        temp_value = f"{temperature:.1f}°C" if temperature is not None else "N/A"
+        temp_color, temp_status, temp_icon = get_status_info(temperature, (20, 30), (15, 35), "°C")
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">🌡️ Suhu Air</div>
+            <div class="metric-value" style="color: {temp_color};">{temp_value}</div>
+            <div class="metric-status" style="color: {temp_color};">{temp_icon} {temp_status}</div>
         </div>
         """, unsafe_allow_html=True)
-    
+
     with metrics_col2:
-        st.markdown("""
-        <div class="dashboard-card">
-            <div style="color: #CBD5E0; font-size: 0.9em;">pH</div>
-            <div class="dashboard-value">Coming soon</div>
-            <div style="color: #10B981; font-size: 0.8em;">Normal</div>
+        ph_value = f"{ph:.1f}" if ph is not None else "N/A"
+        ph_color, ph_status, ph_icon = get_status_info(ph, (6.5, 8.5), (6.0, 9.0), "")
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">⚗️ pH</div>
+            <div class="metric-value" style="color: {ph_color};">{ph_value}</div>
+            <div class="metric-status" style="color: {ph_color};">{ph_icon} {ph_status}</div>
         </div>
         """, unsafe_allow_html=True)
-        
+
     with metrics_col3:
-        st.markdown("""
-        <div class="dashboard-card">
-            <div style="color: #CBD5E0; font-size: 0.9em;">Oksigen Terlarut</div>
-            <div class="dashboard-value">Coming soon</div>
-            <div style="color: #10B981; font-size: 0.8em;">mg/L</div>
+        do_value = f"{dissolved_oxygen:.1f} mg/L" if dissolved_oxygen is not None else "N/A"
+        do_color, do_status, do_icon = get_status_info(dissolved_oxygen, (5, 8), (3, 10), "mg/L")
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">💨 Oksigen Terlarut</div>
+            <div class="metric-value" style="color: {do_color};">{do_value}</div>
+            <div class="metric-status" style="color: {do_color};">{do_icon} {do_status}</div>
         </div>
         """, unsafe_allow_html=True)
-        
+
     with metrics_col4:
-        st.markdown("""
-        <div class="dashboard-card">
-            <div style="color: #CBD5E0; font-size: 0.9em;">Kekeruhan</div>
-            <div class="dashboard-value">Coming soon</div>
-            <div style="color: #FBBF24; font-size: 0.8em;">NTU</div>
+        turb_value = f"{turbidity:.1f} NTU" if turbidity is not None else "N/A"
+        turb_color, turb_status, turb_icon = get_status_info(turbidity, (0, 25), (25, 50), "NTU")
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">🌫️ Kekeruhan</div>
+            <div class="metric-value" style="color: {turb_color};">{turb_value}</div>
+            <div class="metric-status" style="color: {turb_color};">{turb_icon} {turb_status}</div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1160,18 +2452,17 @@ def render_dashboard():
         api_url = f"https://api.thingspeak.com/channels/{channel_id}/fields/{field}.json?results={results}"
         try:
             response = requests.get(api_url)
-            response.raise_for_status()  # Raise an error for bad status codes
+            response.raise_for_status()
             data = response.json()
             feeds = data['feeds']
-            # Parse dates and flow rates
             dates = [datetime.strptime(entry['created_at'], "%Y-%m-%dT%H:%M:%SZ") for entry in feeds]
             flow_rates = [float(entry[f'field{field}']) if entry[f'field{field}'] else 0 for entry in feeds]
             return dates, flow_rates
         except requests.RequestException as e:
-            st.error(f"Error fetching data from ThingSpeak: {e}")
+            st.error(f"Error fetching data: {e}")
             return [], []
 
-    # Function to create Plotly chart
+    # Function to create Plotly chart with dark theme, panning enabled, and mobile-friendly title
     def create_flow_chart(dates, flow_rates):
         fig = go.Figure()
         fig.add_trace(
@@ -1180,71 +2471,111 @@ def render_dashboard():
                 y=flow_rates,
                 mode='lines+markers',
                 name='Flow Rate',
-                line=dict(color='#9333EA'),
-                marker=dict(size=8),
-                hovertemplate='Date: %{x|%Y-%m-%d %H:%M:%S}<br>Flow Rate: %{y:.2f}<extra></extra>'
+                line=dict(color='#9333EA', width=2),  # Keep the vibrant purple line
+                marker=dict(
+                    size=6,  # Smaller markers for a cleaner look
+                    color='#9333EA',
+                    line=dict(width=1, color='#d1d5db')  # Light gray outline for markers
+                ),
+                hovertemplate='Tanggal: %{x|%Y-%m-%d %H:%M}<br>Flow Rate: %{y:.2f} L/m<extra></extra>'
             )
         )
         fig.update_layout(
-            title="Flow Analytics Dashboard - Sungai Rengas",
-            xaxis_title="Date",
-            yaxis_title="Flow Rate",
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            width=None,  # Let Plotly use the full width of the container
-            height=400,
-            margin=dict(l=50, r=50, t=50, b=50),
+            title=dict(
+                text="Flow Analytics Dashboard - Sungai Rengas",
+                font=dict(size=16, color='#e5e7eb', family="Arial"),  # Slightly smaller font for mobile
+                x=0.5,  # Center the title
+                xanchor='center',
+                y=0.95,  # Position title closer to the top
+                yanchor='top'
+            ),
+            xaxis_title="Waktu",
+            yaxis_title="Flow Rate (L/m)",
+            plot_bgcolor='#1f2937',  # Dark gray background for the plot area
+            paper_bgcolor='#1f2937',  # Dark gray background for the entire chart
+            width=None,  # Responsive width
+            height=350,  # Slightly shorter height for mobile
+            margin=dict(l=50, r=50, t=100, b=50),  # Increase top margin for title visibility
             showlegend=True,
+            dragmode='pan',  # Enable panning as the default interaction mode
             xaxis=dict(
-                tickformat="%H:%M",  # Format x-axis ticks as time
+                tickformat="%H:%M",  # Time-only format
+                tickfont=dict(size=10, color='#d1d5db'),  # Smaller ticks for mobile
+                titlefont=dict(size=12, color='#d1d5db'),
                 showgrid=True,
-                gridcolor='lightgray'
+                gridcolor='#374151',
+                zeroline=False,
+                fixedrange=False,  # Allow panning on x-axis
+                rangeslider=dict(visible=False),
             ),
             yaxis=dict(
+                tickfont=dict(size=10, color='#d1d5db'),
+                titlefont=dict(size=12, color='#d1d5db'),
                 showgrid=True,
-                gridcolor='lightgray'
+                gridcolor='#374151',
+                zeroline=False,
+                fixedrange=False,  # Allow panning on y-axis
             ),
-            hovermode='x unified'  # Show hover info for all points at the same x-value
+            hovermode='x unified',
+            # Customize modebar to avoid overlap with title
+            modebar=dict(
+                bgcolor='rgba(0,0,0,0)',
+                color='#9ca3af',
+                activecolor='#9333EA',
+                orientation='h',
+                # Position modebar below the title
+                add=['zoomIn', 'zoomOut', 'autoScale', 'resetScale'],  # Only show essential buttons
+            )
+        )
+        # Smooth the line
+        fig.update_traces(
+            line_shape='spline'  # Smooth curve
         )
         return fig
 
-    # Add custom CSS for the container
+    # Custom CSS to shrink modebar icons and ensure title visibility on mobile
     st.markdown("""
-        <style>
-            .water-quality-chart {
-                width: 100%;
-                padding: 10px;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
+    <style>
+        .modebar-container .modebar-group a {
+            width: 16px !important;
+            height: 16px !important;
+            padding: 2px !important;
+        }
+        .modebar-container .modebar-group svg {
+            width: 12px !important;
+            height: 12px !important;
+        }
+        .modebar-container {
+            padding: 2px !important;
+            top: 60px !important;  /* Move modebar down to avoid overlapping title */
+        }
+        .js-plotly-plot .plotly .main-svg {
+            overflow: visible !important;
+        }
+        /* Ensure title visibility on mobile */
+        @media (max-width: 768px) {
+            .gtitle {
+                font-size: 14px !important;  /* Smaller title font on mobile */
+                transform: translateY(-10px) !important;  /* Adjust title position */
             }
-            .water-quality-title {
-                text-align: center;
-                font-size: 24px;
-                margin-bottom: 10px;
-                color: #ffff;
+            .modebar-container {
+                top: 50px !important;  /* Adjust modebar position on mobile */
             }
-        </style>
+            .js-plotly-plot .plotly .main-svg {
+                margin-top: 20px !important;  /* Add extra space for title */
+            }
+        }
+    </style>
     """, unsafe_allow_html=True)
 
-    # Fetch data and create the chart
+    # Fetch data and display the chart (example usage within render_dashboard)
     dates, flow_rates = fetch_thingspeak_data(channel_id=2796290, field=1, results=60)
     if dates and flow_rates:
         fig = create_flow_chart(dates, flow_rates)
-
-        # Display the chart
-        st.markdown("""
-            <div class="water-quality-chart">
-                <div class="water-quality-title">🌊 Grafik Monitoring Kualitas Air</div>
-        """, unsafe_allow_html=True)
-
-        st.plotly_chart(fig, use_container_width=True)  # Use the full width of the container
-
-        st.markdown("""
-            </div>
-        """, unsafe_allow_html=True)
+        st.plotly_chart(fig, use_container_width=True)
     else:
-        st.warning("No data available to display the chart.")
+        st.warning("Tidak ada data untuk ditampilkan.")
+
     # Enhanced footer with animation
     st.markdown("""
         <div style="text-align: center; margin-top: 30px;">
@@ -1255,75 +2586,107 @@ def render_dashboard():
     """, unsafe_allow_html=True)
 
 def handle_sidebar_and_model_selection():
-    """Handle sidebar UI and model selection"""
+    """Handle sidebar UI with enhanced features while maintaining compatibility"""
     with st.sidebar:
-        # Once authenticated, set default API keys from environment variables
-        openai_api_key = os.getenv("OPENAI_API_KEY", "")
-        google_api_key = os.getenv("GOOGLE_API_KEY", "AIzaSyB3aHVOIUyzk4sULzjCLjgo4G6-Tc4fiPA")
-        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
-        
-        # Add logo and sidebar header
+        # Sidebar header with VisionFish branding
         st.markdown("""
-        <div style="text-align: center; margin-bottom: 20px;">
-            <div style="font-size: 2em; background: linear-gradient(120deg, #9333EA, #6B21A8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800;">VisionFish.io</div>
-            <div style="font-size: 0.9em; color: #CBD5E0; margin-top: 5px;">Smart Fish Analysis Platform</div>
-        </div>
-        <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(147, 51, 234, 0.3), transparent); margin: 20px 0;"></div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<div class='dashboard-title' style='text-align: left; margin-bottom: 15px;'>🤖 Model AI</div>", unsafe_allow_html=True)
-        
-        # Model selection with better UI
-        available_models = [] + (anthropic_models if anthropic_api_key else []) + (google_models if google_api_key else []) + (openai_models if openai_api_key else [])
-        model = st.selectbox("Pilih model AI:", available_models, index=0)
-        model_type = None
-        
-        if model in openai_models: 
-            model_type = "openai"
-        elif model in google_models: 
-            model_type = "google"
-        elif model in anthropic_models:
-            model_type = "anthropic"
-        
-        with st.expander("⚙️ Parameter model"):
-            model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
-
-        # Create model parameters
-        model_params = {
-            "model": model,
-            "temperature": model_temp,
-        }
-
-        # Display model info with UI enhancement
-        st.markdown(f"""
-        <div class="info-card" style="margin-top: 20px;">
-            <div style="font-size: 0.9em; color: #CBD5E0; margin-bottom: 8px;">Model yang digunakan:</div>
-            <div style="font-weight: 600; color: #A855F7; font-size: 1.1em;">{model}</div>
-            <div style="margin-top: 8px; font-size: 0.85em; color: #A0AEC0;">Dioptimalkan untuk analisis ikan</div>
+        <div style="text-align: center; padding: 20px 0; background: linear-gradient(135deg, #A855F7, #7C3AED); border-radius: 10px; margin-bottom: 30px;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: #EDE9FE; font-family: 'Inter', sans-serif;">🐟 VisionFish</div>
+            <div style="font-size: 0.875rem; color: #D1D5DB; font-family: 'Inter', sans-serif;">Smart Fishery Assistant</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Reset conversation button with better styling
-        st.markdown("<div style='margin: 25px 0 15px 0;'>", unsafe_allow_html=True)
-        if st.button("🗑️ Mulai Chat Baru", use_container_width=True):
-            if "messages" in st.session_state:
-                st.session_state.pop("messages", None)
-                st.rerun()
-                
-        # Show logout option
-        if st.button("🔒 Logout", use_container_width=True):
+        # User info
+        st.markdown("""
+        <div class="info-card" style="margin-bottom: 30px; background: #1F2937; border: 1px solid rgba(147, 51, 234, 0.3); border-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px;">
+                <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #A855F7, #7C3AED); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #EDE9FE; font-size: 1.2rem; box-shadow: 0 4px 10px rgba(147, 51, 234, 0.3);">👤</div>
+                <div>
+                    <div style="font-weight: 600; color: #EDE9FE; font-size: 1rem; font-family: 'Inter', sans-serif;">Premium</div>
+                    <div style="font-size: 0.875rem; color: #D1D5DB; font-family: 'Inter', sans-serif;">Trial User</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Quick links section with expander and scrollbar
+        with st.expander("🔗 Tautan Cepat", expanded=False):
+            st.markdown("""
+            <style>
+                .quick-links-container {
+                    max-height: 200px;
+                    overflow-y: auto;
+                    padding-right: 5px;
+                }
+                .quick-links-container::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .quick-links-container::-webkit-scrollbar-track {
+                    background: #374151;
+                    border-radius: 10px;
+                }
+                .quick-links-container::-webkit-scrollbar-thumb {
+                    background: #A855F7;
+                    border-radius: 10px;
+                }
+                .quick-links-container::-webkit-scrollbar-thumb:hover {
+                    background: #C084FC;
+                }
+                .quick-link:hover {
+                    background: rgba(147, 51, 234, 0.1);
+                    border-radius: 5px;
+                    padding: 5px;
+                    transition: background 0.2s ease;
+                }
+            </style>
+            <nav class="quick-links-container" aria-label="Quick Links">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <a href="https://syarifrizik.github.io/coming-soon/" target="_blank" class="quick-link" style="color: #A855F7; text-decoration: none; font-weight: 600; font-size: 1rem; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 8px;" aria-label="Penggunaan">
+                        <span style="font-size: 1.2rem;">📖</span> Penggunaan
+                    </a>
+                    <a href="https://drive.google.com/drive/u/1/folders/1afYnOjsv9y95UPDviKoZf0YTe5pHFzWl" target="_blank" class="quick-link" style="color: #A855F7; text-decoration: none; font-weight: 600; font-size: 1rem; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 8px;" aria-label="Dokumentasi">
+                        <span style="font-size: 1.2rem;">📚</span> Dokumentasi
+                    </a>
+                    <a href="https://wa.me/+62895619313339" target="_blank" class="quick-link" style="color: #A855F7; text-decoration: none; font-weight: 600; font-size: 1rem; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 8px;" aria-label="Support">
+                        <span style="font-size: 1.2rem;">📞</span> Support
+                    </a>
+                </div>
+            </nav>
+            """, unsafe_allow_html=True)
+
+        # Logout button
+        st.markdown("<div style='margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
+        if st.button("🔒 Logout", use_container_width=True, key="logout_btn"):
             st.session_state.is_authenticated = False
             st.session_state.token_input_submitted = False
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
-        
-        st.markdown("<div style='height: 1px; background: linear-gradient(90deg, transparent, rgba(147, 51, 234, 0.3), transparent); margin: 20px 0;'></div>", unsafe_allow_html=True)
-            
-        return model, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key
+
+        # Version info at the bottom
+        st.markdown("""
+        <div style="text-align: center; padding: 10px 0; background: #1F2937; border-top: 1px solid rgba(147, 51, 234, 0.2);">
+            <div style="font-size: 0.875rem; color: #EDE9FE; font-weight: 600; font-family: 'Inter', sans-serif;">VisionFish v3.1</div>
+            <div style="font-size: 0.75rem; color: #D1D5DB; font-family: 'Inter', sans-serif;">©2025 Copyright</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Return placeholder values for compatibility with main()
+    model = "default_model"  # Placeholder, actual selection happens in process_image_analysis
+    model_type = None
+    model_params = {"model": model, "temperature": 0.3}  # Default params
+    openai_api_key = os.getenv("OPENAI_API_KEY", "")
+    google_api_key = os.getenv("GOOGLE_API_KEY", "AIzaSyB3aHVOIUyzk4sULzjCLjgo4G6-Tc4fiPA")
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    
+    return model, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key
 
 def handle_image_upload():
-    """Handle image upload with improved UI"""
-    st.markdown("<div class='section-title'>📷 Analisis Gambar Ikan</div>", unsafe_allow_html=True)
+    # Handle image upload with improved UI and model selection
+    st.markdown("""
+    <div class='section-title'>
+        <span>📷</span> Analisis Gambar Ikan
+    </div>
+    """, unsafe_allow_html=True)
     
     # Create tabs for different upload options
     tab1, tab2 = st.tabs(["Upload Gambar", "Ambil Foto"])
@@ -1370,9 +2733,14 @@ def handle_image_upload():
             
             with col1:
                 image = Image.open(img_input)
-                st.image(image, caption="Gambar Ikan", use_column_width=True)
+                st.image(image, caption="Gambar Ikan", use_container_width=True)  # Fixed here
             
             with col2:
+                # Model selection logic within Instruksi Analisis
+                openai_api_key = os.getenv("OPENAI_API_KEY", "")
+                google_api_key = os.getenv("GOOGLE_API_KEY", "AIzaSyB3aHVOIUyzk4sULzjCLjgo4G6-Tc4fiPA")
+                anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
+                
                 st.markdown("""
                 <div class="info-card">
                     <div style="font-size: 1.1em; font-weight: 600; color: #A855F7; margin-bottom: 15px;">Instruksi Analisis</div>
@@ -1381,9 +2749,78 @@ def handle_image_upload():
                         <li style="margin-bottom: 8px;">Analisis <b>Spesies</b> mengidentifikasi jenis ikan</li>
                         <li style="margin-bottom: 8px;">Analisis <b>Kesegaran</b> menentukan kualitas ikan</li>
                     </ul>
-                    <p>Gunakan tombol di bawah untuk memulai analisis sesuai kebutuhan Anda.</p>
+                """, unsafe_allow_html=True)
+                
+                # Model selection UI
+                st.markdown("<div class='dashboard-title' style='text-align: left; margin-bottom: 15px;'>🤖 Model Vision Fish</div>", unsafe_allow_html=True)
+                
+                # Define model lists with custom names
+                model_name_mapping = {
+                    "Neptune-Savant": "claude-3-5-sonnet-20240620",
+                    "ReefSpark-Lite": "gemini-1.5-flash",
+                    "WaveCore-Ultra": "gemini-1.5-pro",
+                    "AquaVision-Pro": "gpt-4o",
+                    "TidalFlux-Max": "gpt-4-turbo",
+                    "CoralPulse-Lite": "gpt-3.5-turbo-16k",
+                    "DeepMind-Classic": "gpt-4",
+                    "OceanVault-Extended": "gpt-4-32k"
+                }
+                
+                anthropic_models = ["Neptune-Savant"]
+                google_models = ["ReefSpark-Lite", "WaveCore-Ultra"]
+                openai_models = ["AquaVision-Pro", "TidalFlux-Max", "CoralPulse-Lite", "DeepMind-Classic", "OceanVault-Extended"]
+                
+                available_models = [] + (anthropic_models if anthropic_api_key else []) + (google_models if google_api_key else []) + (openai_models if openai_api_key else [])
+                model = st.selectbox("Pilih model Vision Fish:", available_models, index=0)
+                model_type = None
+                
+                if model in openai_models: 
+                    model_type = "openai"
+                elif model in google_models: 
+                    model_type = "google"
+                elif model in anthropic_models:
+                    model_type = "anthropic"
+                
+                with st.expander("⚙️ Parameter model"):
+                    model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
+
+                # Create model parameters with mapped API model name
+                model_params = {
+                    "model": model_name_mapping.get(model, model),  # Map custom name to API name
+                    "temperature": model_temp,
+                }
+
+                # Define model-specific descriptions without external branding
+                model_descriptions = {
+                    "Neptune-Savant": "Kecerdasan mendalam untuk analisis visual presisi",
+                    "ReefSpark-Lite": "Kecepatan tinggi untuk identifikasi spesies ringkas",
+                    "WaveCore-Ultra": "Analisis mendalam dengan performa maksimal",
+                    "AquaVision-Pro": "Visi canggih untuk hasil akurat dan cepat",
+                    "TidalFlux-Max": "Kekuatan maksimum untuk tugas kompleks",
+                    "CoralPulse-Lite": "Efisiensi tinggi untuk analisis sederhana",
+                    "DeepMind-Classic": "Keandalan klasik untuk hasil stabil",
+                    "OceanVault-Extended": "Kapasitas besar untuk analisis detail"
+                }
+
+                # Display model info with custom description
+                st.markdown(f"""
+                <div class="info-card" style="margin-top: 20px;">
+                    <div style="font-size: 0.9em; color: #CBD5E0; margin-bottom: 8px;">Model yang digunakan:</div>
+                    <div style="font-weight: 600; color: #A855F7; font-size: 1.1em;">{model}</div>
+                    <div style="margin-top: 8px; font-size: 0.85em; color: #A0AEC0;">{model_descriptions.get(model, "Dioptimalkan untuk analisis ikan")}</div>
                 </div>
                 """, unsafe_allow_html=True)
+
+                # Reset conversation button
+                st.markdown("<div style='margin: 25px 0 15px 0;'>", unsafe_allow_html=True)
+                if st.button("🗑️ Mulai Chat Baru", use_container_width=True):
+                    if "messages" in st.session_state:
+                        st.session_state.pop("messages", None)
+                    st.session_state.chat_reset = True
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)  # Close info-card div
             
             # Add image to session state messages
             img_type = img_input.type
@@ -1397,13 +2834,18 @@ def handle_image_upload():
                 }]
             }
             
-            return image_message
+            return image_message, model, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key
     
-    return None
+    return None, None, None, None, None, None, None
 
 def handle_csv_upload_and_analysis():
     """Handle CSV upload and data analysis with improved UI"""
-    st.markdown("<div class='section-title'>📊 Analisis Data Kualitas Ikan</div>", unsafe_allow_html=True)
+    # Handle CSV upload and data analysis with improved UI
+    st.markdown("""
+    <div class='section-title'>
+        <span>📊</span> Analisis Data Kualitas Ikan
+    </div>
+    """, unsafe_allow_html=True)
     
     # Show a better description of the feature
     st.markdown("""
@@ -1793,7 +3235,7 @@ def handle_csv_upload_and_analysis():
         <div class="custom-notification" style="margin-top: 20px;">
             <div style="font-weight: 600; margin-bottom: 5px;">💡 Butuh bantuan?</div>
             <p>Untuk pertanyaan lebih lanjut tentang penggunaan fitur analisis data, silakan hubungi tim kami melalui WhatsApp.</p>
-            <a href="https://wa.me/0895619313339" style="color: #A855F7; text-decoration: none; font-weight: 500; display: inline-block; margin-top: 10px;">
+            <a href="https://wa.me/+62895619313339" style="color: #A855F7; text-decoration: none; font-weight: 500; display: inline-block; margin-top: 10px;">
                 Hubungi Support →
             </a>
         </div>
@@ -1829,51 +3271,44 @@ def process_prompt_response(selected_prompt, model_type, model_params, api_keys)
         
         st.write_stream(response)
 
-def process_image_analysis(image_message, prompt_text, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key):
-    """Process an image analysis request with the selected prompt"""
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        
-    # Add the image message to session
-    st.session_state.messages.append(image_message)
-    
-    # Add the prompt for image analysis (but don't display it to the user)
-    text_prompt = {
-        "role": "user",
-        "content": [{
-            "type": "text",
-            "text": prompt_text
-        }]
-    }
-    
-    st.session_state.messages.append(text_prompt)
-    
-    with st.spinner("Menganalisis gambar..."):
-        with st.chat_message("assistant"):
+def process_image_analysis(image_message, prompt, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key):
+    """Process image analysis using provided model info"""
+    if image_message:
+        with st.spinner("Menganalisis gambar..."):
+            # Map model type to API key
             model2key = {
                 "openai": openai_api_key,
                 "google": google_api_key,
                 "anthropic": anthropic_api_key,
             }
             
+            # Initialize session state messages if not present
+            if "messages" not in st.session_state:
+                st.session_state.messages = []
+            
+            # Clear previous messages
+            st.session_state.messages = []
+            
+            # Combine image_message with prompt as a single user message
+            combined_message = {
+                "role": "user",
+                "content": [
+                    image_message["content"][0],  # The image_url part
+                    {"type": "text", "text": prompt}
+                ]
+            }
+            
+            st.session_state.messages.append(combined_message)
+            
+            # Call stream_llm_response
             response = stream_llm_response(
                 model_params=model_params,
                 model_type=model_type,
                 api_key=model2key[model_type]
             )
             
-            st.write_stream(response)
-    
-    # Show a success message
-    st.success("Analisis selesai!")
-    
-    # Show a button to start a new analysis
-    if st.button("🔄 Analisis Gambar Baru", use_container_width=True):
-        # Clear the messages related to the last image
-        if len(st.session_state.messages) >= 3:
-            st.session_state.messages = st.session_state.messages[:-3]
-        st.rerun()
-
+            with st.chat_message("assistant"):
+                st.write_stream(response)
 def main():
     """Main application function"""
     # Setup page and initialize session state
@@ -1905,72 +3340,20 @@ def main():
         render_dashboard()
         
         # Create tabs to organize main content
-        tabs = st.tabs(["💬 AI Assistant", "📸 Image Analysis", "📊 Data Analysis"])
+        tabs = st.tabs(["💬 Assistant", "📸 Image Analysis", "📊 Data Analysis"])
         
         with tabs[0]:
-            # Chat interface
-            st.markdown("<div class='section-title'>💬 AI Assistant</div>", unsafe_allow_html=True)
-            
             # Display the prompt buttons
             prompt = render_prompt_buttons()
             
-            # Display the previous messages if there are any
-            st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-            
-            if "messages" in st.session_state and len(st.session_state.messages) > 0:
-                # Display only messages that should be visible to the user
-                # (every message except for prompt messages that are processed separately)
-                visible_messages = []
-                i = 0
-                while i < len(st.session_state.messages):
-                    # If this is a user message with a prompt button text, skip it and its response
-                    if (i < len(st.session_state.messages) - 1 and 
-                        st.session_state.messages[i]["role"] == "user" and 
-                        i + 1 < len(st.session_state.messages) and
-                        st.session_state.messages[i]["content"][0]["type"] == "text" and
-                        (st.session_state.messages[i]["content"][0]["text"].startswith("Analisis Kesegaran Ikan dari Gambar:") or
-                         st.session_state.messages[i]["content"][0]["text"].startswith("Analisis Spesies Ikan dari Gambar:"))):
-                        # Skip the prompt message
-                        i += 1
-                        # Add only the response to visible messages
-                        if i < len(st.session_state.messages):
-                            visible_messages.append(st.session_state.messages[i])
-                        i += 1
-                    else:
-                        # Add regular message to visible messages
-                        visible_messages.append(st.session_state.messages[i])
-                        i += 1
-                
-                # Display the visible messages
-                for message in visible_messages:
-                    with st.chat_message(message["role"]):
-                        for content in message["content"]:
-                            if content["type"] == "text":
-                                st.write(content["text"])
-                            elif content["type"] == "image_url":      
-                                st.image(content["image_url"]["url"])
-            else:
-                # Show welcome message if no messages
-                st.markdown("""
-                <div style="text-align: center; padding: 30px 0;">
-                    <div style="font-size: 4em; margin-bottom: 20px;">👋</div>
-                    <div style="font-size: 1.2em; font-weight: 600; color: #A855F7; margin-bottom: 15px;">
-                        Selamat datang di VisionFish.io Assistant
-                    </div>
-                    <p style="color: #CBD5E0; max-width: 500px; margin: 0 auto;">
-                        Asisten AI ini dapat membantu Anda dengan analisis ikan, informasi perikanan, dan praktik terbaik penanganan ikan.
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-            # Text input for chat
-            user_input = st.chat_input("Tanyakan sesuatu tentang perikanan...")
+            # Display the n8n chat component
+            render_visionfish_chat()
+       
+            # Define user_input variable but don't display the standard chat input
+            user_input = None
             
             # Process user inputs
             if prompt:
-                # Process prompt response without showing the prompt to the user
                 process_prompt_response(prompt, model_type, model_params, api_keys)
                 st.rerun()
             
@@ -1980,10 +3363,7 @@ def main():
                     
                 st.session_state.messages.append({
                     "role": "user",
-                    "content": [{
-                        "type": "text",
-                        "text": user_input
-                    }]
+                    "content": [{"type": "text", "text": user_input}]
                 })
                 
                 with st.chat_message("user"):
@@ -2004,14 +3384,14 @@ def main():
                     
                     st.write_stream(response)
                 
-                # Rerun to update UI
                 st.rerun()
-        
+
         with tabs[1]:
             # Image analysis tab
-            image_message = handle_image_upload()
-            
-            if image_message:
+            result = handle_image_upload()
+            if result[0] is not None:  # Check if image_message is not None
+                image_message, model, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key = result
+                
                 # Display prompt selection after image upload
                 st.markdown("<div class='dashboard-title' style='margin: 20px 0;'>Pilih Jenis Analisis</div>", unsafe_allow_html=True)
                 
@@ -2019,15 +3399,16 @@ def main():
                 
                 with analysis_col1:
                     if st.button("🔍 Analisis Spesies", use_container_width=True):
-                        process_image_analysis(image_message, get_analisis_ikan_prompt(), model_type, model_params, openai_api_key, google_api_key, anthropic_api_key)
+                        process_image_analysis(image_message, get_analisis_ikan_prompt(model), model_type, model_params, openai_api_key, google_api_key, anthropic_api_key)
                 
                 with analysis_col2:
                     if st.button("🌟 Analisis Kesegaran", use_container_width=True):
-                        process_image_analysis(image_message, get_freshness_prompt(), model_type, model_params, openai_api_key, google_api_key, anthropic_api_key)
+                        process_image_analysis(image_message, get_freshness_prompt(model), model_type, model_params, openai_api_key, google_api_key, anthropic_api_key)
+                
         
         with tabs[2]:
             # Data analysis tab
             handle_csv_upload_and_analysis()
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
