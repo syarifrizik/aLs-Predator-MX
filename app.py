@@ -2514,89 +2514,107 @@ def render_dashboard():
         </div>
         """, unsafe_allow_html=True)
         
-    # Function to fetch data from ThingSpeak API
-    def fetch_thingspeak_data(channel_id, field, results=60):
+    # Function to fetch data from ThingSpeak API with error handling
+    def fetch_thingspeak_data(channel_id, field, results=60, timeout=5):
         api_url = f"https://api.thingspeak.com/channels/{channel_id}/fields/{field}.json?results={results}"
         try:
-            response = requests.get(api_url)
+            response = requests.get(api_url, timeout=timeout)
             response.raise_for_status()
             data = response.json()
             feeds = data['feeds']
             dates = [datetime.strptime(entry['created_at'], "%Y-%m-%dT%H:%M:%SZ") for entry in feeds]
-            flow_rates = [float(entry[f'field{field}']) if entry[f'field{field}'] else 0 for entry in feeds]
+            flow_rates = [float(entry[f'field{field}']) if entry[f'field{field}'] else None for entry in feeds]
             return dates, flow_rates
-        except requests.RequestException as e:
-            st.error(f"Error fetching data: {e}")
+        except (requests.RequestException, ValueError, KeyError) as e:
+            st.error(f"Error fetching data: {str(e)}")
             return [], []
 
     # Function to create Plotly chart with dark theme, panning enabled, and mobile-friendly title
     def create_flow_chart(dates, flow_rates):
         fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=dates,
-                y=flow_rates,
-                mode='lines+markers',
-                name='Flow Rate',
-                line=dict(color='#9333EA', width=2),  # Keep the vibrant purple line
-                marker=dict(
-                    size=6,  # Smaller markers for a cleaner look
-                    color='#9333EA',
-                    line=dict(width=1, color='#d1d5db')  # Light gray outline for markers
-                ),
-                hovertemplate='Tanggal: %{x|%Y-%m-%d %H:%M}<br>Flow Rate: %{y:.2f} L/m<extra></extra>'
-            )
-        )
+        # Candlestick chart for flow range
+        valid_flow_rates = [f for f in flow_rates if f is not None]
+        min_rate = min(valid_flow_rates) if valid_flow_rates else 0
+        max_rate = max(valid_flow_rates) if valid_flow_rates else 0
+        fig.add_trace(go.Candlestick(
+            x=dates,
+            open=[min_rate] * len(dates),
+            high=flow_rates,
+            low=flow_rates,
+            close=[max_rate] * len(dates),
+            increasing_line_color='#10B981',
+            decreasing_line_color='#EF4444',
+            name='Flow Range'
+        ))
+        # Scatter plot for actual flow rates
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=flow_rates,
+            mode='lines+markers',
+            name='Flow Rate',
+            line=dict(color='#9333EA', width=2, shape='spline'),
+            marker=dict(size=6, color='#A855F7', line=dict(width=1, color='#D1D5DB')),
+            hovertemplate='Tanggal: %{x|%Y-%m-%d %H:%M}<br>Flow Rate: %{y:.2f} L/m<extra></extra>'
+        ))
         fig.update_layout(
-            title=dict(
-                text="Flow Analytics Dashboard - Sungai Rengas",
-                font=dict(size=16, color='#e5e7eb', family="Arial"),  # Slightly smaller font for mobile
-                x=0.5,  # Center the title
-                xanchor='center',
-                y=0.95,  # Position title closer to the top
-                yanchor='top'
-            ),
+            title={
+                'text': "Flow Analytics Dashboard - Sungai Rengas",
+                'font': {'size': 18, 'color': '#EDE9FE', 'family': "Arial"},
+                'x': 0.5, 'xanchor': 'center',
+                'y': 0.95, 'yanchor': 'top'
+            },
             xaxis_title="Waktu",
             yaxis_title="Flow Rate (L/m)",
-            plot_bgcolor='#1f2937',  # Dark gray background for the plot area
-            paper_bgcolor='#1f2937',  # Dark gray background for the entire chart
-            width=None,  # Responsive width
-            height=350,  # Slightly shorter height for mobile
-            margin=dict(l=50, r=50, t=100, b=50),  # Increase top margin for title visibility
+            plot_bgcolor='#1F2937',
+            paper_bgcolor='#1F2937',
+            width=None,
+            height=350,
+            margin=dict(l=50, r=50, t=100, b=50),
             showlegend=True,
-            dragmode='pan',  # Enable panning as the default interaction mode
+            dragmode='pan',
             xaxis=dict(
-                tickformat="%H:%M",  # Time-only format
-                tickfont=dict(size=10, color='#d1d5db'),  # Smaller ticks for mobile
-                titlefont=dict(size=12, color='#d1d5db'),
+                tickformat="%H:%M",
+                tickfont=dict(size=10, color='#D1D5DB'),
+                titlefont=dict(size=12, color='#D1D5DB'),
                 showgrid=True,
                 gridcolor='#374151',
                 zeroline=False,
-                fixedrange=False,  # Allow panning on x-axis
-                rangeslider=dict(visible=False),
+                fixedrange=False,
+                rangeselector=dict(
+                    buttons=list([
+                        dict(count=1, label="1H", step="hour", stepmode="backward"),
+                        dict(count=6, label="6H", step="hour", stepmode="backward"),
+                        dict(count=12, label="12H", step="hour", stepmode="backward"),
+                        dict(count=1, label="1D", step="day", stepmode="backward"),
+                        dict(step="all", label="All")
+                    ]),
+                    bgcolor='#1F2937',
+                    bordercolor='#4B5563',
+                    borderwidth=1,
+                    font=dict(size=10, color='#D1D5DB'),
+                    x=0.5,
+                    y=1.1,
+                    xanchor='center'
+                ),
+                rangeslider=dict(visible=True, bgcolor='#4B5563', thickness=0.1),
+                type="date"
             ),
             yaxis=dict(
-                tickfont=dict(size=10, color='#d1d5db'),
-                titlefont=dict(size=12, color='#d1d5db'),
+                tickfont=dict(size=10, color='#D1D5DB'),
+                titlefont=dict(size=12, color='#D1D5DB'),
                 showgrid=True,
                 gridcolor='#374151',
                 zeroline=False,
-                fixedrange=False,  # Allow panning on y-axis
+                fixedrange=False
             ),
             hovermode='x unified',
-            # Customize modebar to avoid overlap with title
             modebar=dict(
                 bgcolor='rgba(0,0,0,0)',
-                color='#9ca3af',
+                color='#9CA3AF',
                 activecolor='#9333EA',
                 orientation='h',
-                # Position modebar below the title
-                add=['zoomIn', 'zoomOut', 'autoScale', 'resetScale'],  # Only show essential buttons
+                add=['zoomIn', 'zoomOut', 'autoScale', 'resetScale']
             )
-        )
-        # Smooth the line
-        fig.update_traces(
-            line_shape='spline'  # Smooth curve
         )
         return fig
 
@@ -2614,41 +2632,49 @@ def render_dashboard():
         }
         .modebar-container {
             padding: 2px !important;
-            top: 60px !important;  /* Move modebar down to avoid overlapping title */
+            top: 60px !important;
         }
         .js-plotly-plot .plotly .main-svg {
             overflow: visible !important;
         }
-        /* Ensure title visibility on mobile */
+        .rangeselector-btn {
+            font-size: 12px !important;
+            padding: 4px 8px !important;
+        }
         @media (max-width: 768px) {
             .gtitle {
-                font-size: 14px !important;  /* Smaller title font on mobile */
-                transform: translateY(-10px) !important;  /* Adjust title position */
+                font-size: 14px !important;
+                transform: translateY(-10px) !important;
             }
             .modebar-container {
-                top: 50px !important;  /* Adjust modebar position on mobile */
+                top: 50px !important;
             }
-            .js-plotly-plot .plotly .main-svg {
-                margin-top: 20px !important;  /* Add extra space for title */
+            .js-plotly-plot {
+                height: 300px !important;
+            }
+            .rangeselector-btn {
+                font-size: 10px !important;
+                padding: 3px 6px !important;
             }
         }
     </style>
     """, unsafe_allow_html=True)
 
-    # Fetch data and display the chart (example usage within render_dashboard)
+    # Fetch data and display the chart
     dates, flow_rates = fetch_thingspeak_data(channel_id=2796290, field=1, results=60)
-    if dates and flow_rates:
+    if dates and any(f is not None for f in flow_rates):
         fig = create_flow_chart(dates, flow_rates)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.warning("Tidak ada data untuk ditampilkan.")
 
-    # Enhanced footer with animation
+    # Close the chart container
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Enhanced footer with animation, centered on both Android and desktop
     st.markdown("""
-        <div style="text-align: center; margin-top: 30px;">
-            <p class="footer-text">
-                ✨ Sistem monitoring real-time • Update setiap 5 detik ✨
-            </p>
+        <div class="footer-text" style="font-size: 0.9em; margin: 30px auto; display: flex; justify-content: center; align-items: center;">
+            ✨ Sistem monitoring real-time • Update setiap 5 detik ✨
         </div>
     """, unsafe_allow_html=True)
 
@@ -2809,63 +2835,13 @@ def handle_image_upload():
                 anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
                 
                 st.markdown("""
-                <div class="info-card">
+                <div class="info-card" style="overflow: visible; z-index: 1;">
                     <div style="font-size: 1.1em; font-weight: 600; color: #A855F7; margin-bottom: 15px;">Instruksi Analisis</div>
                     <p style="margin-bottom: 15px;">Pilih jenis analisis yang ingin Anda lakukan pada gambar ini:</p>
                     <ul style="margin-left: 20px; margin-bottom: 15px;">
                         <li style="margin-bottom: 8px;">Analisis <b>Spesies</b> mengidentifikasi jenis ikan</li>
                         <li style="margin-bottom: 8px;">Analisis <b>Kesegaran</b> menentukan kualitas ikan</li>
                     </ul>
-                </div>
-                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                    <style>
-                        .upgrade-badge {
-                            background: #FFD700; /* Kuning */
-                            color: #1F2937; /* Hitam */
-                            padding: 4px 10px;
-                            border-radius: 8px;
-                            font-size: 0.65em;
-                            font-weight: 600;
-                            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
-                            display: inline-flex;
-                            align-items: center;
-                            gap: 3px;
-                            transition: all 0.3s ease;
-                            z-index: 1;
-                        }
-                        .upgrade-badge::before {
-                            content: '';
-                            position: absolute;
-                            top: -2px;
-                            left: -2px;
-                            right: -2px;
-                            bottom: -2px;
-                            border: 1px solid transparent;
-                            border-radius: 12px;
-                            background: linear-gradient(45deg, #FFD700, #FFA500, #FFD700) border-box;
-                            animation: rotateBorder 3s linear infinite;
-                            z-index: -1;
-                        }
-                        .upgrade-badge:hover {
-                            transform: scale(1.05);
-                            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
-                        }
-                        .upgrade-badge a {
-                            color: #1F2937;
-                            text-decoration: none;
-                            font-family: 'Inter', sans-serif;
-                        }
-                        .upgrade-badge a:hover {
-                            text-decoration: none;
-                        }
-                        @keyframes rotateBorder {
-                            0% { background-position: 0% 50%; }
-                            100% { background-position: 400% 50%; }
-                        }
-                    </style>
-                    <div class="upgrade-badge">
-                        <a href="https://wa.me/+62895619313339" target="_blank">Tambah Fitur Premium</a>
-                    </div>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -2925,11 +2901,67 @@ def handle_image_upload():
                 }
 
 
+                # Pisahkan CSS ke string terpisah untuk menghindari konflik dengan f-string
+                css = """
+                <style>
+                    .upgrade-badge {
+                        background: #FFD700; /* Kuning */
+                        color: #1F2937; /* Hitam */
+                        padding: 4px 10px;
+                        border-radius: 8px;
+                        font-size: 0.65em;
+                        font-weight: 600;
+                        box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 3px;
+                        transition: all 0.3s ease;
+                        position: relative; /* Pastikan pseudo-element relatif terhadap badge */
+                    }
+                    .upgrade-badge::before {
+                        content: '';
+                        position: absolute;
+                        top: -2px;
+                        left: -2px;
+                        right: -2px;
+                        bottom: -2px;
+                        border: 1px solid transparent;
+                        border-radius: 12px;
+                        background: linear-gradient(45deg, #FFD700, #FFA500, #FFD700) border-box;
+                        animation: rotateBorder 3s linear infinite;
+                        z-index: -1;
+                    }
+                    .upgrade-badge:hover {
+                        transform: scale(1.05);
+                        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
+                    }
+                    .upgrade-badge a {
+                        color: #1F2937;
+                        text-decoration: none;
+                        font-family: 'Inter', sans-serif;
+                    }
+                    .upgrade-badge a:hover {
+                        text-decoration: none;
+                    }
+                    @keyframes rotateBorder {
+                        0% { background-position: 0% 50%; }
+                        100% { background-position: 400% 50%; }
+                    }
+                </style>
+                """
+
+                # Gabungkan CSS dengan HTML dalam f-string
                 st.markdown(f"""
+                {css}
                 <div class="info-card" style="margin-top: 20px;">
                     <div style="font-size: 0.9em; color: #CBD5E0; margin-bottom: 8px;">Model yang digunakan:</div>
                     <div style="font-weight: 600; color: #A855F7; font-size: 1.1em;">{model}</div>
                     <div style="margin-top: 8px; font-size: 0.85em; color: #A0AEC0;">{model_descriptions.get(model, "Dioptimalkan untuk analisis ikan")}</div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                    <div class="upgrade-badge">
+                        <a href="https://wa.me/+62895619313339" target="_blank">Tambah Fitur Premium</a>
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
 
