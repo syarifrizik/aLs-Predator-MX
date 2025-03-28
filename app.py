@@ -2797,7 +2797,8 @@ def handle_image_upload():
             with col1:
                 try:
                     image = Image.open(img_input)
-                    st.image(image, caption="Gambar Ikan", use_container_width=True)
+                    # Hapus use_container_width untuk kompatibilitas
+                    st.image(image, caption="Gambar Ikan")
                 except Exception as e:
                     st.error(f"Error membuka gambar: {str(e)}")
                     return None, None, None, None, None, None, None
