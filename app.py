@@ -1396,6 +1396,55 @@ def render_auth_screen():
     # Custom CSS for the authentication screen
     st.markdown("""
     <style>
+        /* Welcome Overlay */
+        .welcome-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeInOverlay 0.5s ease-in-out;
+        }
+        .welcome-box {
+            background: linear-gradient(135deg, #9333EA, #6B21A8);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 10px 30px rgba(147, 51, 234, 0.4);
+            animation: slideUp 0.8s ease-out;
+            max-width: 500px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        .welcome-title {
+            font-size: 2.2em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        .welcome-subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+        /* Animations */
+        @keyframes fadeInOverlay {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        @keyframes slideUp {
+            0% { opacity: 0; transform: translateY(50px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
         .auth-container {
             background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.9));
             border-radius: 16px;
@@ -1554,7 +1603,7 @@ def render_auth_screen():
     """, unsafe_allow_html=True)
 
 def render_auth_screen():
-    # Bagian CSS tetap sama, tidak diubah
+    # Bagian CSS tetap sama
 
     # Authentication screen layout
     st.markdown("""
@@ -1566,15 +1615,19 @@ def render_auth_screen():
     </div>
     """, unsafe_allow_html=True)
 
-    # Inisialisasi session state
+# Inisialisasi state
     if 'is_processing' not in st.session_state:
         st.session_state.is_processing = False
     if 'is_authenticated' not in st.session_state:
         st.session_state.is_authenticated = False
+    if 'token_input_submitted' not in st.session_state:
+        st.session_state.token_input_submitted = False
+    if 'show_welcome' not in st.session_state:
+        st.session_state.show_welcome = False
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        with st.form(key="login_form"):
+        with st.form(key="login_form", clear_on_submit=True):
             access_token = st.text_input(
                 "Enter access token:",
                 type="password",
@@ -1584,44 +1637,50 @@ def render_auth_screen():
             )
             submit_button = st.form_submit_button(label="Login", use_container_width=True)
 
-            # Placeholder untuk pesan, diletakkan di dalam form setelah tombol
+            # Placeholder untuk pesan error
             message_container = st.empty()
 
             if submit_button and not st.session_state.is_processing:
-                # Tandai bahwa proses sedang berlangsung
                 st.session_state.is_processing = True
                 with st.spinner("Authenticating..."):
                     import time
-                    time.sleep(1)  # Simulasi delay
+                    time.sleep(1)
                     is_authenticated = access_token in valid_tokens
                     st.session_state.is_authenticated = is_authenticated
+                    st.session_state.token_input_submitted = True
                     
                     if not is_authenticated:
-                        # Tampilkan pesan error di placeholder
                         message_container.markdown(
                             '<div class="message-box error-message">❌ Invalid token. Please try again.</div>',
                             unsafe_allow_html=True
                         )
                         render_unauthenticated_content()
                     else:
-                        # Tampilkan pesan sukses di placeholder
                         message_container.markdown(
                             '<div class="message-box success-message">✅ Authentication successful!</div>',
                             unsafe_allow_html=True
                         )
+                        # Tandai untuk menampilkan pesan selamat datang
+                        st.session_state.show_welcome = True
                         st.rerun()
                 
-                # Reset status pemrosesan setelah selesai
                 st.session_state.is_processing = False
-        # Add a request link for getting a token with better styling
+
+    # Tampilkan pesan selamat datang jika diperlukan
+    if st.session_state.get('show_welcome', False):
         st.markdown("""
-        <div style="text-align: center; margin-top: 15px;">
-            <a href="https://wa.me/+62895619313339?text=Halo%20bang%2C%20saya%20ingin%20mendapatkan%20token%20akses%20untuk%20VisionFish.io" 
-               style="color: #A855F7; text-decoration: none; font-weight: 500;">
-               Request access token <span style="font-size: 1.2em;">→</span>
-            </a>
+        <div class="welcome-overlay">
+            <div class="welcome-box">
+                <div class="welcome-title">🌟 Selamat Datang di VisionFish!</div>
+                <div class="welcome-subtitle">Nikmati pengalaman cerdas untuk perikanan modern bersama kami.</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
+        # Tambahkan delay lalu reset show_welcome
+        import time
+        time.sleep(3)  # Tampilkan selama 3 detik
+        st.session_state.show_welcome = False
+        st.rerun()
 
 def render_unauthenticated_content():
     """Render content for unauthenticated users with enhanced UI/UX"""
@@ -2594,9 +2653,8 @@ def render_dashboard():
     """, unsafe_allow_html=True)
 
 def handle_sidebar_and_model_selection():
-    """Handle sidebar UI with enhanced features while maintaining compatibility"""
     with st.sidebar:
-        # Sidebar header with VisionFish branding
+        # Sidebar header (tetap sama)
         st.markdown("""
         <div style="text-align: center; padding: 20px 0; background: linear-gradient(135deg, #A855F7, #7C3AED); border-radius: 10px; margin-bottom: 30px;">
             <div style="font-size: 1.5rem; font-weight: 700; color: #EDE9FE; font-family: 'Inter', sans-serif;">🐟 VisionFish</div>
@@ -2604,7 +2662,7 @@ def handle_sidebar_and_model_selection():
         </div>
         """, unsafe_allow_html=True)
 
-        # User info
+        # User info (tetap sama)
         st.markdown("""
         <div class="info-card" style="margin-bottom: 30px; background: #1F2937; border: 1px solid rgba(147, 51, 234, 0.3); border-radius: 8px;">
             <div style="display: flex; align-items: center; gap: 12px; padding: 12px;">
@@ -2617,7 +2675,7 @@ def handle_sidebar_and_model_selection():
         </div>
         """, unsafe_allow_html=True)
 
-        # Quick links section with expander and scrollbar
+        # Quick links (tetap sama)
         with st.expander("🔗 Tautan Cepat", expanded=False):
             st.markdown("""
             <style>
@@ -2662,15 +2720,18 @@ def handle_sidebar_and_model_selection():
             </nav>
             """, unsafe_allow_html=True)
 
-        # Logout button
-        st.markdown("<div style='margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
+        # Logout button dengan reset penuh
+        st.markdown("<div style='margin-top: 30 PXpx; margin-bottom: 30px;'>", unsafe_allow_html=True)
         if st.button("🔒 Logout", use_container_width=True, key="logout_btn"):
+            # Reset semua state autentikasi
+            st.session_state.clear()  # Hapus semua session state
             st.session_state.is_authenticated = False
             st.session_state.token_input_submitted = False
+            st.session_state.is_processing = False
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Version info at the bottom
+        # Version info (tetap sama)
         st.markdown("""
         <div style="text-align: center; padding: 10px 0; background: #1F2937; border-top: 1px solid rgba(147, 51, 234, 0.2);">
             <div style="font-size: 0.875rem; color: #EDE9FE; font-weight: 600; font-family: 'Inter', sans-serif;">VisionFish v3.1</div>
@@ -2678,10 +2739,10 @@ def handle_sidebar_and_model_selection():
         </div>
         """, unsafe_allow_html=True)
 
-    # Return placeholder values for compatibility with main()
-    model = "default_model"  # Placeholder, actual selection happens in process_image_analysis
+    # Return placeholder values (tetap sama)
+    model = "default_model"
     model_type = None
-    model_params = {"model": model, "temperature": 0.3}  # Default params
+    model_params = {"model": model, "temperature": 0.3}
     openai_api_key = os.getenv("OPENAI_API_KEY", "")
     google_api_key = os.getenv("GOOGLE_API_KEY", "AIzaSyB3aHVOIUyzk4sULzjCLjgo4G6-Tc4fiPA")
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
@@ -3319,48 +3380,33 @@ def process_image_analysis(image_message, prompt, model_type, model_params, open
                 st.write_stream(response)
 def main():
     """Main application function"""
-    # Setup page and initialize session state
+    # Setup page dan inisialisasi
     setup_page_config()
     apply_custom_css()
     initialize_session_state()
 
-    # Check if user is authenticated
-    if not st.session_state.is_authenticated:
-        if not st.session_state.token_input_submitted:
-            render_auth_screen()
-        else:
-            # If token was submitted but authentication failed
-            render_auth_screen()
-            render_unauthenticated_content()
+    # Tampilkan layar autentikasi jika belum login
+    if not st.session_state.get('is_authenticated', False):
+        render_auth_screen()
     else:
-        # User is authenticated - show main application
-        # Setup sidebar and get model info
+        # User sudah autentikasi
         model, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key = handle_sidebar_and_model_selection()
         
-        # Create API keys dictionary for easy access
         api_keys = {
             "openai": openai_api_key,
             "google": google_api_key,
             "anthropic": anthropic_api_key,
         }
         
-        # Display the dashboard
         render_dashboard()
         
-        # Create tabs to organize main content
         tabs = st.tabs(["💬 Assistant", "📸 Image Analysis", "📊 Data Analysis"])
         
         with tabs[0]:
-            # Display the prompt buttons
             prompt = render_prompt_buttons()
-            
-            # Display the n8n chat component
             render_visionfish_chat()
-       
-            # Define user_input variable but don't display the standard chat input
             user_input = None
             
-            # Process user inputs
             if prompt:
                 process_prompt_response(prompt, model_type, model_params, api_keys)
                 st.rerun()
@@ -3395,12 +3441,10 @@ def main():
                 st.rerun()
 
         with tabs[1]:
-            # Image analysis tab
             result = handle_image_upload()
-            if result[0] is not None:  # Check if image_message is not None
+            if result[0] is not None:
                 image_message, model, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key = result
                 
-                # Display prompt selection after image upload
                 st.markdown("<div class='dashboard-title' style='margin: 20px 0;'>Pilih Jenis Analisis</div>", unsafe_allow_html=True)
                 
                 analysis_col1, analysis_col2 = st.columns(2)
@@ -3412,10 +3456,8 @@ def main():
                 with analysis_col2:
                     if st.button("🌟 Analisis Kesegaran", use_container_width=True):
                         process_image_analysis(image_message, get_freshness_prompt(model), model_type, model_params, openai_api_key, google_api_key, anthropic_api_key)
-                
         
         with tabs[2]:
-            # Data analysis tab
             handle_csv_upload_and_analysis()
 
 if __name__ == "__main__":
