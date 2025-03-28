@@ -2750,14 +2750,13 @@ def handle_sidebar_and_model_selection():
     return model, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key
 
 def handle_image_upload():
-    # Handle image upload with improved UI and model selection
+    # Bagian awal tetap sama
     st.markdown("""
     <div class='section-title'>
         <span>📷</span> Analisis Gambar Ikan
     </div>
     """, unsafe_allow_html=True)
     
-    # Create tabs for different upload options
     tab1, tab2 = st.tabs(["Upload Gambar", "Ambil Foto"])
     
     uploaded_img = None
@@ -2773,11 +2772,7 @@ def handle_image_upload():
         """, unsafe_allow_html=True)
         
         uploaded_img = st.file_uploader(
-            "",  # Empty label
-            type=["png", "jpg", "jpeg"],
-            accept_multiple_files=False,
-            key="uploaded_img",
-            label_visibility="collapsed"
+            "", type=["png", "jpg", "jpeg"], accept_multiple_files=False, key="uploaded_img", label_visibility="collapsed"
         )
     
     with tab2:
@@ -2796,16 +2791,18 @@ def handle_image_upload():
     if uploaded_img or camera_img:
         img_input = uploaded_img if uploaded_img else camera_img
         
-        # Display the uploaded image
         if img_input:
             col1, col2 = st.columns([1, 1])
             
             with col1:
-                image = Image.open(img_input)
-                st.image(image, caption="Gambar Ikan", use_container_width=True)  # Fixed here
+                try:
+                    image = Image.open(img_input)
+                    st.image(image, caption="Gambar Ikan", use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error membuka gambar: {str(e)}")
+                    return None, None, None, None, None, None, None
             
             with col2:
-                # Model selection logic within Instruksi Analisis
                 openai_api_key = os.getenv("OPENAI_API_KEY", "")
                 google_api_key = os.getenv("GOOGLE_API_KEY", "AIzaSyB3aHVOIUyzk4sULzjCLjgo4G6-Tc4fiPA")
                 anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
@@ -2820,10 +2817,8 @@ def handle_image_upload():
                     </ul>
                 """, unsafe_allow_html=True)
                 
-                # Model selection UI
                 st.markdown("<div class='dashboard-title' style='text-align: left; margin-bottom: 15px;'>🤖 Model Vision Fish</div>", unsafe_allow_html=True)
                 
-                # Define model lists with custom names
                 model_name_mapping = {
                     "Neptune-Savant": "claude-3-5-sonnet-20240620",
                     "ReefSpark-Lite": "gemini-1.5-flash",
@@ -2853,13 +2848,12 @@ def handle_image_upload():
                 with st.expander("⚙️ Parameter model"):
                     model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
 
-                # Create model parameters with mapped API model name
                 model_params = {
-                    "model": model_name_mapping.get(model, model),  # Map custom name to API name
+                    "model": model_name_mapping.get(model, model),
                     "temperature": model_temp,
                 }
 
-                # Define model-specific descriptions without external branding
+                # Tambahkan definisi model_descriptions sebelum digunakan
                 model_descriptions = {
                     "Neptune-Savant": "Kecerdasan mendalam untuk analisis visual presisi",
                     "ReefSpark-Lite": "Kecepatan tinggi untuk identifikasi spesies ringkas",
@@ -2871,7 +2865,6 @@ def handle_image_upload():
                     "OceanVault-Extended": "Kapasitas besar untuk analisis detail"
                 }
 
-                # Display model info with custom description
                 st.markdown(f"""
                 <div class="info-card" style="margin-top: 20px;">
                     <div style="font-size: 0.9em; color: #CBD5E0; margin-bottom: 8px;">Model yang digunakan:</div>
@@ -2880,7 +2873,6 @@ def handle_image_upload():
                 </div>
                 """, unsafe_allow_html=True)
 
-                # Reset conversation button
                 st.markdown("<div style='margin: 25px 0 15px 0;'>", unsafe_allow_html=True)
                 if st.button("🗑️ Mulai Chat Baru", use_container_width=True):
                     if "messages" in st.session_state:
@@ -2889,9 +2881,8 @@ def handle_image_upload():
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
                 
-                st.markdown("</div>", unsafe_allow_html=True)  # Close info-card div
+                st.markdown("</div>", unsafe_allow_html=True)
             
-            # Add image to session state messages
             img_type = img_input.type
             img_base64 = get_image_base64(image)
             
