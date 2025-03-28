@@ -2744,7 +2744,7 @@ def handle_sidebar_and_model_selection():
     model_type = None
     model_params = {"model": model, "temperature": 0.3}
     openai_api_key = os.getenv("OPENAI_API_KEY", "")
-    google_api_key = os.getenv("GOOGLE_API_KEY", "AIzaSyB3aHVOIUyzk4sULzjCLjgo4G6-Tc4fiPA")
+    google_api_key = os.getenv("GOOGLE_API_KEY", "")
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
     
     return model, model_type, model_params, openai_api_key, google_api_key, anthropic_api_key
