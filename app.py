@@ -2805,7 +2805,7 @@ def handle_image_upload():
             
             with col2:
                 openai_api_key = os.getenv("OPENAI_API_KEY", "")
-                google_api_key = os.getenv("GOOGLE_API_KEY", "AIzaSyB3aHVOIUyzk4sULzjCLjgo4G6-Tc4fiPA")
+                google_api_key = os.getenv("GOOGLE_API_KEY", "")
                 anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
                 
                 st.markdown("""
@@ -2816,25 +2816,77 @@ def handle_image_upload():
                         <li style="margin-bottom: 8px;">Analisis <b>Spesies</b> mengidentifikasi jenis ikan</li>
                         <li style="margin-bottom: 8px;">Analisis <b>Kesegaran</b> menentukan kualitas ikan</li>
                     </ul>
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                    <style>
+                        .upgrade-badge {
+                            background: #FFD700; /* Kuning */
+                            color: #1F2937; /* Hitam */
+                            padding: 4px 10px;
+                            border-radius: 8px;
+                            font-size: 0.65em;
+                            font-weight: 600;
+                            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 3px;
+                            transition: all 0.3s ease;
+                            z-index: 1;
+                        }
+                        .upgrade-badge::before {
+                            content: '';
+                            position: absolute;
+                            top: -2px;
+                            left: -2px;
+                            right: -2px;
+                            bottom: -2px;
+                            border: 1px solid transparent;
+                            border-radius: 12px;
+                            background: linear-gradient(45deg, #FFD700, #FFA500, #FFD700) border-box;
+                            animation: rotateBorder 3s linear infinite;
+                            z-index: -1;
+                        }
+                        .upgrade-badge:hover {
+                            transform: scale(1.05);
+                            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
+                        }
+                        .upgrade-badge a {
+                            color: #1F2937;
+                            text-decoration: none;
+                            font-family: 'Inter', sans-serif;
+                        }
+                        .upgrade-badge a:hover {
+                            text-decoration: none;
+                        }
+                        @keyframes rotateBorder {
+                            0% { background-position: 0% 50%; }
+                            100% { background-position: 400% 50%; }
+                        }
+                    </style>
+                    <div class="upgrade-badge">
+                        <a href="https://wa.me/+62895619313339" target="_blank">Tambah Fitur Premium</a>
+                    </div>
+                </div>
                 """, unsafe_allow_html=True)
                 
                 st.markdown("<div class='dashboard-title' style='text-align: left; margin-bottom: 15px;'>🤖 Model Vision Fish</div>", unsafe_allow_html=True)
                 
                 # Model name mapping tetap sama seperti sebelumnya
                 model_name_mapping = {
-                    "AquaSight-Pro": "gpt-4o",
-                    "AquaFlow-Max": "gpt-4-turbo",
-                    "AquaPulse-Lite": "gpt-3.5-turbo-16k",
-                    "AquaCore-Classic": "gpt-4",
-                    "AquaDepth-XL": "gpt-4-32k",
-                    "NeptuneGlow-Lite": "gemini-1.5-flash",
-                    "NeptuneWave-Ultra": "gemini-1.5-pro",
-                    "ReefEye-Prime": "claude-3-5-sonnet-20240620"
+                    "AquaDepth-Elite": "gpt-4o",  
+                    # ndk bise lihat gambar itu dokomentar:
+                    # "AquaFlow-Max": "gpt-4-turbo",
+                    # "AquaPulse-Lite": "gpt-3.5-turbo-16k",
+                    # "AquaCore-Classic": "gpt-4",
+                    # "AquaDepth-XL": "gpt-4-32k",
+                    "NeptuneFlow-Prime": "gemini-1.5-flash",  # Mengambil "Flow" dari "AquaFlow-Max" + "Prime"
+                    "NeptuneWave-Regal": "gemini-1.5-pro", 
+                    # "ReefEye-Prime": "claude-3-5-sonnet-20240620"
                 }
                 
                 anthropic_models = ["ReefEye-Prime"]
-                google_models = ["NeptuneGlow-Lite", "NeptuneWave-Ultra"]
-                openai_models = ["AquaSight-Pro", "AquaFlow-Max", "AquaPulse-Lite", "AquaCore-Classic", "AquaDepth-XL"]
+                google_models = ["NeptuneFlow-Prime", "NeptuneWave-Regal"]
+                openai_models = ["AquaDepth-Elite"]
                 
                 available_models = [] + (anthropic_models if anthropic_api_key else []) + (google_models if google_api_key else []) + (openai_models if openai_api_key else [])
                 model = st.selectbox("Pilih model Vision Fish:", available_models, index=0)
@@ -2858,18 +2910,18 @@ def handle_image_upload():
                 # Definisi model_descriptions dengan kata-kata premium baru
                 model_descriptions = {
                     # Kelompok Aqua (OpenAI)
-                    "AquaSight-Pro": "Exquisite clarity untuk penglihatan dan pemahaman unrivaled",
-                    "AquaFlow-Max": "Paramount flow yang mendominasi visual dan narasi elit",
-                    "AquaPulse-Lite": "Pristine pulse untuk wawasan lisan yang illustrious",
-                    "AquaCore-Classic": "Timeless core dengan ketajaman visual dan intelek superior",
-                    "AquaDepth-XL": "Unfathomable depth untuk eksplorasi gambar dan kata prestisius",
+                    "AquaDepth-Elite": "Unfathomable depth untuk pandangan dan kata yang superior",
+                    # "AquaFlow-Max": "Paramount flow yang mendominasi visual dan narasi elit",
+                    # "AquaPulse-Lite": "Pristine pulse untuk wawasan lisan yang illustrious",
+                    # "AquaCore-Classic": "Timeless core dengan ketajaman visual dan intelek tiada tanding",
+                    # "AquaDepth-XL": "Unfathomable elegance untuk eksplorasi gambar dan kata prestisius",
                     
                     # Kelompok Neptune (Google)
-                    "NeptuneGlow-Lite": "Radiant gleam yang mempesona gambar dan teks dengan kecepatan sublime",
-                    "NeptuneWave-Ultra": "Majestic wave untuk penglihatan dan pengetahuan yang transcendent",
+                    "NeptuneFlow-Prime": "Paramount current dengan pengelihatan visual dan wawasan dengan kecepatan divine",
+                    "NeptuneWave-Regal": "Sovereign tide untuk penglihatan dan pemahaman yang tak tertandingi",
                     
                     # Kelompok Reef (Anthropic)
-                    "ReefEye-Prime": "Luminous gaze yang memadukan visual dan narasi dengan finesse tak tertandingi"
+                    "ReefCore-Illustrious": "Pinnacle essence yang menyatukan gambar dan narasi dengan kehalusan luar biasa"
                 }
 
 
