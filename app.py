@@ -2820,20 +2820,21 @@ def handle_image_upload():
                 
                 st.markdown("<div class='dashboard-title' style='text-align: left; margin-bottom: 15px;'>🤖 Model Vision Fish</div>", unsafe_allow_html=True)
                 
+                # Model name mapping tetap sama seperti sebelumnya
                 model_name_mapping = {
-                    "Neptune-Savant": "claude-3-5-sonnet-20240620",
-                    "ReefSpark-Lite": "gemini-1.5-flash",
-                    "WaveCore-Ultra": "gemini-1.5-pro",
-                    "AquaVision-Pro": "gpt-4o",
-                    "TidalFlux-Max": "gpt-4-turbo",
-                    "CoralPulse-Lite": "gpt-3.5-turbo-16k",
-                    "DeepMind-Classic": "gpt-4",
-                    "OceanVault-Extended": "gpt-4-32k"
+                    "AquaSight-Pro": "gpt-4o",
+                    "AquaFlow-Max": "gpt-4-turbo",
+                    "AquaPulse-Lite": "gpt-3.5-turbo-16k",
+                    "AquaCore-Classic": "gpt-4",
+                    "AquaDepth-XL": "gpt-4-32k",
+                    "NeptuneGlow-Lite": "gemini-1.5-flash",
+                    "NeptuneWave-Ultra": "gemini-1.5-pro",
+                    "ReefEye-Prime": "claude-3-5-sonnet-20240620"
                 }
                 
-                anthropic_models = ["Neptune-Savant"]
-                google_models = ["ReefSpark-Lite", "WaveCore-Ultra"]
-                openai_models = ["AquaVision-Pro", "TidalFlux-Max", "CoralPulse-Lite", "DeepMind-Classic", "OceanVault-Extended"]
+                anthropic_models = ["ReefEye-Prime"]
+                google_models = ["NeptuneGlow-Lite", "NeptuneWave-Ultra"]
+                openai_models = ["AquaSight-Pro", "AquaFlow-Max", "AquaPulse-Lite", "AquaCore-Classic", "AquaDepth-XL"]
                 
                 available_models = [] + (anthropic_models if anthropic_api_key else []) + (google_models if google_api_key else []) + (openai_models if openai_api_key else [])
                 model = st.selectbox("Pilih model Vision Fish:", available_models, index=0)
@@ -2854,17 +2855,23 @@ def handle_image_upload():
                     "temperature": model_temp,
                 }
 
-                # Tambahkan definisi model_descriptions sebelum digunakan
+                # Definisi model_descriptions dengan kata-kata premium baru
                 model_descriptions = {
-                    "Neptune-Savant": "Kecerdasan mendalam untuk analisis visual presisi",
-                    "ReefSpark-Lite": "Kecepatan tinggi untuk identifikasi spesies ringkas",
-                    "WaveCore-Ultra": "Analisis mendalam dengan performa maksimal",
-                    "AquaVision-Pro": "Visi canggih untuk hasil akurat dan cepat",
-                    "TidalFlux-Max": "Kekuatan maksimum untuk tugas kompleks",
-                    "CoralPulse-Lite": "Efisiensi tinggi untuk analisis sederhana",
-                    "DeepMind-Classic": "Keandalan klasik untuk hasil stabil",
-                    "OceanVault-Extended": "Kapasitas besar untuk analisis detail"
+                    # Kelompok Aqua (OpenAI)
+                    "AquaSight-Pro": "Exquisite clarity untuk penglihatan dan pemahaman unrivaled",
+                    "AquaFlow-Max": "Paramount flow yang mendominasi visual dan narasi elit",
+                    "AquaPulse-Lite": "Pristine pulse untuk wawasan lisan yang illustrious",
+                    "AquaCore-Classic": "Timeless core dengan ketajaman visual dan intelek superior",
+                    "AquaDepth-XL": "Unfathomable depth untuk eksplorasi gambar dan kata prestisius",
+                    
+                    # Kelompok Neptune (Google)
+                    "NeptuneGlow-Lite": "Radiant gleam yang mempesona gambar dan teks dengan kecepatan sublime",
+                    "NeptuneWave-Ultra": "Majestic wave untuk penglihatan dan pengetahuan yang transcendent",
+                    
+                    # Kelompok Reef (Anthropic)
+                    "ReefEye-Prime": "Luminous gaze yang memadukan visual dan narasi dengan finesse tak tertandingi"
                 }
+
 
                 st.markdown(f"""
                 <div class="info-card" style="margin-top: 20px;">
