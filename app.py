@@ -3321,6 +3321,7 @@ def display_weather_info():
     """, unsafe_allow_html=True)
 
     # Search bar untuk lokasi menggunakan st.form agar mendukung Enter
+    # Search bar untuk lokasi menggunakan st.form agar mendukung Enter
     with st.form(key="weather_search_form", clear_on_submit=False):
         col_search, col_button = st.columns([5, 1])
         with col_search:
@@ -3330,8 +3331,8 @@ def display_weather_info():
 
     # Proses pencarian saat tombol ditekan atau Enter ditekan
     if search_button:
-        if not location or location.strip() == "":  # Periksa apakah location kosong atau hanya berisi spasi
-            st.error("Gagal mengambil data cuaca. Pastikan format lokasi benar (city name, city id). Lihat [panduan penulisan lokasi](https://openweathermap.org/current#cityid) untuk informasi lebih lanjut.")
+        if not location or location.strip() == "":
+            st.error("Gagal mengambil data cuaca. Pastikan format lokasi benar (City name, City ID). Lihat [panduan penulisan lokasi](https://openweathermap.org/current#cityid) untuk informasi lebih lanjut.")
             # Reset state jika pencarian gagal
             st.session_state.initial_search = False
             if 'weather_data' in st.session_state:
@@ -3342,6 +3343,9 @@ def display_weather_info():
             with st.spinner("Mengambil data cuaca..."):
                 weather_data = fetch_weather_data(location)
                 if weather_data:
+                    # Gunakan waktu lokal saat ini sebagai timestamp
+                    current_time = datetime.now().strftime("%d %B %Y, Pukul %H:%M:%S")
+                    weather_data['timestamp'] = current_time  # Perbarui timestamp dengan waktu sekarang
                     st.session_state.weather_data = weather_data
                     st.session_state.initial_search = True
                     # Reset slider ke skor awal berdasarkan data API
@@ -3401,7 +3405,6 @@ def display_weather_info():
                         del st.session_state.weather_data
                     if 'hourly_forecast' in st.session_state:
                         del st.session_state.hourly_forecast
-
     # Gunakan data cuaca dari session state jika tersedia
     if 'weather_data' in st.session_state and st.session_state.get('initial_search', False):
         weather_data = st.session_state.weather_data
