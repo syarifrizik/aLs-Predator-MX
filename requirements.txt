@@ -1,3 +1,5 @@
+geopy>=2.4.1
+supabase>=0.7.0
 seaborn==0.13.2
 plotly==5.22.0
 altair==4.2.2
