@@ -3181,10 +3181,13 @@ def fetch_hourly_forecast(location):
         data = response.json()
         # Ambil data untuk 24 jam ke depan (8 interval, 3 jam sekali)
         hourly_data = []
+        wib_timezone = pytz.timezone("Asia/Jakarta")  # Zona waktu WIB
         for i in range(8):  # 8 interval untuk 24 jam (3 jam sekali)
             forecast = data["list"][i]
+            # Konversi timestamp ke zona waktu WIB
+            forecast_time = datetime.fromtimestamp(forecast["dt"], tz=pytz.UTC).astimezone(wib_timezone)
             hourly_data.append({
-                "time": datetime.fromtimestamp(forecast["dt"]).strftime("%H:%M"),
+                "time": forecast_time.strftime("%H:%M"),  # Format waktu dalam WIB
                 "temperature": round(forecast["main"]["temp"], 2),
                 "icon": forecast["weather"][0]["icon"]
             })
