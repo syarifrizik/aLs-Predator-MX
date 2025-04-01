@@ -15,6 +15,7 @@ import urllib.parse
 import requests
 from datetime import datetime
 import random 
+import pytz
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -3343,9 +3344,10 @@ def display_weather_info():
             with st.spinner("Mengambil data cuaca..."):
                 weather_data = fetch_weather_data(location)
                 if weather_data:
-                    # Gunakan waktu lokal saat ini sebagai timestamp
-                    current_time = datetime.now().strftime("%d %B %Y, Pukul %H:%M:%S")
-                    weather_data['timestamp'] = current_time  # Perbarui timestamp dengan waktu sekarang
+                    # Gunakan waktu lokal saat ini dengan zona waktu WIB (UTC+7)
+                    wib_timezone = pytz.timezone("Asia/Jakarta")  # Zona waktu WIB
+                    current_time = datetime.now(wib_timezone).strftime("%d %B %Y, Pukul %H:%M:%S")
+                    weather_data['timestamp'] = current_time  # Perbarui timestamp dengan waktu sekarang di WIB
                     st.session_state.weather_data = weather_data
                     st.session_state.initial_search = True
                     # Reset slider ke skor awal berdasarkan data API
@@ -3405,6 +3407,7 @@ def display_weather_info():
                         del st.session_state.weather_data
                     if 'hourly_forecast' in st.session_state:
                         del st.session_state.hourly_forecast
+                        
     # Gunakan data cuaca dari session state jika tersedia
     if 'weather_data' in st.session_state and st.session_state.get('initial_search', False):
         weather_data = st.session_state.weather_data
