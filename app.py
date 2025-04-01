@@ -14,6 +14,7 @@ from plotly import graph_objects as go
 import urllib.parse
 import requests
 from datetime import datetime
+import random 
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -2370,7 +2371,7 @@ def render_dashboard():
     # Dashboard metrics with attractive cards
     st.markdown("""
     <div class='section-title'>
-        <span>📊</span> Dashboard Kualitas Air
+        <span>📊</span> Dashboard Kualitas Air Sungai Rengas
     </div>
     """, unsafe_allow_html=True)
 
@@ -2990,6 +2991,875 @@ def handle_image_upload():
     
     return None, None, None, None, None, None, None
 
+
+
+def fetch_weather_data(location):
+    """
+    Fetch weather data from OpenWeatherMap API for a given location.
+    Returns None if the request fails for any reason, without raising an exception.
+    """
+    try:
+        api_key = "e21eb6272044ad9e9600f8fdf7c2d8c1"  # Ganti dengan API key Anda
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={location}&appid={api_key}&units=metric&lang=id"
+        response = requests.get(url)
+        # Periksa status kode secara manual tanpa melemparkan exception
+        if response.status_code != 200:
+            return None  # Kembalikan None jika status kode bukan 200 (misalnya, 404)
+        data = response.json()
+        # Pastikan data memiliki kunci yang diperlukan
+        if "coord" not in data or "main" not in data or "wind" not in data or "weather" not in data:
+            return None
+        return {
+            "location": data["name"],
+            "temperature": data["main"]["temp"],
+            "humidity": data["main"]["humidity"],
+            "pressure": data["main"]["pressure"],
+            "wind_speed": data["wind"]["speed"],
+            "description": data["weather"][0]["description"],
+            "timestamp": datetime.fromtimestamp(data["dt"]).strftime("%d %B %Y, Pukul %H:%M:%S"),
+            "coord": data["coord"]  # Pastikan koordinat disertakan
+        }
+    except (requests.exceptions.RequestException, ValueError, KeyError):
+        return None  # Kembalikan None tanpa melemparkan exception
+
+def interpret_weather(weather_data):
+    """Provide interpretation of weather data for fishery with pros and cons"""
+    temp = weather_data["temperature"]
+    humidity = weather_data["humidity"]
+    wind_speed = weather_data["wind_speed"]
+    description = weather_data["description"].lower()
+
+    interpretation = {
+        "Suhu": {"value": f"{temp}°C", "meaning": "", "pros": "", "cons": "", "score": 0, "icon": "🌡️"},
+        "Kelembapan": {"value": f"{humidity}%", "meaning": "", "pros": "", "cons": "", "score": 0, "icon": "💧"},
+        "Kecepatan Angin": {"value": f"{wind_speed} m/s", "meaning": "", "pros": "", "cons": "", "score": 0, "icon": "💨"},
+        "Kondisi Hujan": {"value": description, "meaning": "", "pros": "", "cons": "", "score": 0, "icon": "☁️"}
+    }
+
+    if temp < 20:
+        interpretation["Suhu"]["meaning"] = "Suhu dingin, mungkin memperlambat aktivitas ikan."
+        interpretation["Suhu"]["pros"] = "Ikan tertentu seperti ikan air dingin (salmon) bisa lebih aktif."
+        interpretation["Suhu"]["cons"] = "Metabolisme ikan tropis melambat, pertumbuhan terhambat."
+        interpretation["Suhu"]["score"] = -1
+    elif 20 <= temp <= 30:
+        interpretation["Suhu"]["meaning"] = "Suhu ideal untuk sebagian besar ikan tropis."
+        interpretation["Suhu"]["pros"] = "Mendukung pertumbuhan dan aktivitas ikan optimal."
+        interpretation["Suhu"]["cons"] = "Jika terlalu lama panas, bisa meningkatkan risiko penyakit."
+        interpretation["Suhu"]["score"] = 1
+    else:
+        interpretation["Suhu"]["meaning"] = "Suhu panas, bisa menyebabkan stres pada ikan."
+        interpretation["Suhu"]["pros"] = "Meningkatkan metabolisme untuk ikan tertentu."
+        interpretation["Suhu"]["cons"] = "Kadar oksigen turun, risiko kematian ikan meningkat."
+        interpretation["Suhu"]["score"] = -1
+
+    if humidity < 50:
+        interpretation["Kelembapan"]["meaning"] = "Udara kering, bisa memengaruhi evaporasi air."
+        interpretation["Kelembapan"]["pros"] = "Mengurangi risiko jamur di peralatan."
+        interpretation["Kelembapan"]["cons"] = "Evaporasi cepat, perlu tambah air di kolam."
+        interpretation["Kelembapan"]["score"] = -0.5
+    elif 50 <= humidity <= 80:
+        interpretation["Kelembapan"]["meaning"] = "Kelembapan normal, baik untuk lingkungan perikanan."
+        interpretation["Kelembapan"]["pros"] = "Stabil untuk ekosistem air dan udara."
+        interpretation["Kelembapan"]["cons"] = "Tidak ada dampak negatif signifikan."
+        interpretation["Kelembapan"]["score"] = 0.5
+    else:
+        interpretation["Kelembapan"]["meaning"] = "Kelembapan tinggi, meningkatkan risiko kelembapan berlebih."
+        interpretation["Kelembapan"]["pros"] = "Menjaga air tetap stabil di kolam."
+        interpretation["Kelembapan"]["cons"] = "Risiko jamur dan bakteri meningkat."
+        interpretation["Kelembapan"]["score"] = -0.5
+
+    if wind_speed < 3:
+        interpretation["Kecepatan Angin"]["meaning"] = "Angin lemah, kondisi tenang."
+        interpretation["Kecepatan Angin"]["pros"] = "Aman untuk operasi perikanan di laut."
+        interpretation["Kecepatan Angin"]["cons"] = "Kurang sirkulasi udara di kolam tertutup."
+        interpretation["Kecepatan Angin"]["score"] = 0.5
+    elif 3 <= wind_speed <= 10:
+        interpretation["Kecepatan Angin"]["meaning"] = "Angin sedang, baik untuk sirkulasi air."
+        interpretation["Kecepatan Angin"]["pros"] = "Meningkatkan oksigenasi air di kolam."
+        interpretation["Kecepatan Angin"]["cons"] = "Bisa mengganggu jaring kecil."
+        interpretation["Kecepatan Angin"]["score"] = 0.5
+    else:
+        interpretation["Kecepatan Angin"]["meaning"] = "Angin kencang, berpotensi berbahaya."
+        interpretation["Kecepatan Angin"]["pros"] = "Sirkulasi air sangat baik."
+        interpretation["Kecepatan Angin"]["cons"] = "Risiko kerusakan peralatan dan gelombang tinggi."
+        interpretation["Kecepatan Angin"]["score"] = -1
+
+    if "hujan" not in description.lower():
+        interpretation["Kondisi Hujan"]["meaning"] = "Tidak ada hujan, kondisi lebih nyaman."
+        interpretation["Kondisi Hujan"]["pros"] = "Visibilitas air baik, memancing lebih mudah."
+        interpretation["Kondisi Hujan"]["cons"] = "Tidak ada dampak negatif signifikan."
+        interpretation["Kondisi Hujan"]["score"] = 1
+    else:
+        interpretation["Kondisi Hujan"]["meaning"] = "Hujan, dapat memengaruhi visibilitas air."
+        interpretation["Kondisi Hujan"]["pros"] = "Ikan mungkin lebih aktif di permukaan."
+        interpretation["Kondisi Hujan"]["cons"] = "Air keruh, memancing lebih sulit."
+        interpretation["Kondisi Hujan"]["score"] = -1
+
+    return interpretation
+
+def get_fishing_season_and_conditions(weather_data, interpretation):
+    """Determine fishing season and conditions with integrated interpretation and user-friendly messages"""
+    current_month = datetime.now().month
+
+    if 4 <= current_month <= 10:
+        season = "Musim Kering"
+        season_desc = "Ini adalah musim kering, biasanya waktu yang baik untuk memancing karena cuaca lebih stabil dan ikan lebih aktif di perairan dangkal."
+        season_score = 1
+    else:
+        season = "Musim Hujan"
+        season_desc = "Ini adalah musim hujan, ikan mungkin lebih tersebar karena aliran air meningkat, tetapi memancing bisa lebih sulit karena kondisi cuaca."
+        season_score = -0.5
+
+    total_score = (
+        season_score +
+        interpretation["Suhu"]["score"] +
+        interpretation["Kelembapan"]["score"] +
+        interpretation["Kecepatan Angin"]["score"] +
+        interpretation["Kondisi Hujan"]["score"]
+    )
+
+    if total_score >= 1:
+        fishing_condition = "Baik"
+        condition_summary = "Kondisi ini sangat mendukung untuk memancing. Peluang menemukan ikan cukup tinggi!"
+        condition_icon = "✅"
+    elif 0 <= total_score < 1:
+        fishing_condition = "Cukup Baik"
+        condition_summary = "Kondisi ini cukup mendukung, tetapi ada beberapa faktor yang perlu diperhatikan. Jika ikan sulit ditemukan, coba gunakan umpan yang lebih menarik atau pindah ke perairan yang lebih teduh."
+        condition_icon = "⚠️"
+    else:
+        fishing_condition = "Kurang Baik"
+        condition_summary = "Kondisi ini kurang ideal untuk memancing. Jika Anda kesulitan menemukan ikan, coba lagi di pagi atau sore hari saat suhu lebih sejuk, atau cari spot dengan arus air yang lebih stabil."
+        condition_icon = "❌"
+
+    condition_reasons = []
+    for param, details in interpretation.items():
+        condition_reasons.append({
+            "param": param,
+            "value": details["value"],
+            "meaning": details["meaning"],
+            "pros": details["pros"],
+            "cons": details["cons"],
+            "icon": details["icon"]
+        })
+
+    source_info = "Berdasarkan pola musiman tropis dan pengaruh cuaca terhadap perilaku ikan (Farmers' Almanac, Fishing Booker)."
+
+    return {
+        "season": season,
+        "season_description": season_desc,
+        "condition": fishing_condition,
+        "condition_summary": condition_summary,
+        "condition_icon": condition_icon,
+        "condition_reasons": condition_reasons,
+        "source": source_info
+    }
+
+def fetch_hourly_forecast(location):
+    """
+    Fetch hourly weather forecast (24 hours, 3-hour intervals) from OpenWeatherMap API.
+    Returns None if the request fails for any reason.
+    """
+    # Periksa apakah weather_data tersedia di session state
+    if 'weather_data' not in st.session_state or not st.session_state.weather_data:
+        return None  # Kembalikan None tanpa pesan error
+
+    weather_data = st.session_state.weather_data
+    # Periksa apakah koordinat tersedia dalam weather_data
+    if "coord" not in weather_data:
+        return None  # Kembalikan None tanpa pesan error
+
+    try:
+        api_key = "e21eb6272044ad9e9600f8fdf7c2d8c1"  # Ganti dengan API key Anda
+        lat = weather_data["coord"]["lat"]
+        lon = weather_data["coord"]["lon"]
+        url = f"http://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=metric&lang=id"
+        response = requests.get(url)
+        # Periksa status kode secara manual tanpa melemparkan exception
+        if response.status_code != 200:
+            return None  # Kembalikan None jika status kode bukan 200
+        data = response.json()
+        # Ambil data untuk 24 jam ke depan (8 interval, 3 jam sekali)
+        hourly_data = []
+        for i in range(8):  # 8 interval untuk 24 jam (3 jam sekali)
+            forecast = data["list"][i]
+            hourly_data.append({
+                "time": datetime.fromtimestamp(forecast["dt"]).strftime("%H:%M"),
+                "temperature": round(forecast["main"]["temp"], 2),
+                "icon": forecast["weather"][0]["icon"]
+            })
+        return hourly_data
+    except (requests.exceptions.RequestException, ValueError, KeyError):
+        return None  # Kembalikan None tanpa pesan error
+    
+def display_weather_info():
+    """Display weather information with improved UI/UX"""
+    st.markdown("""
+    <div class='section-title'>
+        <span>🌤️</span> Lihat Cuaca untuk Perikanan
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="custom-notification">
+        <div style="font-weight: 600; margin-bottom: 5px;">ℹ️ Info Cuaca</div>
+        <p>Lihat cuaca terkini berdasarkan lokasi untuk mendukung aktivitas perikanan Anda. Tekan Enter atau klik ikon untuk melihat hasil.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <style>
+        .weather-search-container {
+            display: flex;
+            align-items: center;
+            background: rgba(31, 41, 55, 0.8);
+            border-radius: 12px;
+            padding: 8px;
+            border: 1px solid rgba(147, 51, 234, 0.3);
+            transition: all 0.3s ease;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .weather-search-container:hover {
+            border-color: rgba(147, 51, 234, 0.6);
+            box-shadow: 0 0 12px rgba(147, 51, 234, 0.3);
+        }
+        .weather-search-input {
+            flex-grow: 1;
+            border: none;
+            background: transparent;
+            color: #EDE9FE;
+            padding: 10px;
+            font-size: 1.1em;
+            outline: none;
+        }
+        .weather-search-input::placeholder {
+            color: #A78BFA;
+            font-style: italic;
+        }
+        .weather-search-button {
+            background: linear-gradient(135deg, #9333EA, #6B21A8);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .weather-search-button:hover {
+            background: linear-gradient(135deg, #7E22CE, #5B1A8A);
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.5);
+            transform: translateY(-2px);
+        }
+        .weather-card {
+            background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(45, 55, 72, 0.7));
+            border-radius: 16px;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid rgba(147, 51, 234, 0.2);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            min-height: 100px;
+        }
+        .weather-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 25px rgba(147, 51, 234, 0.15);
+        }
+        .weather-icon {
+            font-size: 1.2em;
+            margin-right: 10px;
+        }
+        .condition-card {
+            background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(45, 55, 72, 0.7));
+            border-radius: 16px;
+            padding: 20px;
+            margin: 10px 0;
+            border: 1px solid rgba(147, 51, 234, 0.2);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .condition-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 25px rgba(147, 51, 234, 0.15);
+        }
+        .condition-icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+        .condition-detail {
+            margin: 10px 0;
+            padding: 15px;
+            background: rgba(147, 51, 234, 0.1);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .condition-detail:hover {
+            background: rgba(147, 51, 234, 0.15);
+            transform: translateX(5px);
+        }
+        /* Box Container untuk Ramalan Memancing dan elemen di bawahnya */
+        .forecast-box {
+            background: rgba(31, 41, 55, 0.8);
+            border-radius: 16px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(147, 51, 234, 0.2);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+        /* Styling untuk Expander */
+        [data-testid="stExpander"] {
+            background: transparent;
+            border: none;
+        }
+        [data-testid="stExpanderToggleIcon"] {
+            color: #A855F7;
+        }
+        [data-testid="stExpander"] > div:first-child {
+            font-weight: 600;
+            color: #A855F7;
+            font-size: 1em;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Search bar untuk lokasi menggunakan st.form agar mendukung Enter
+    with st.form(key="weather_search_form", clear_on_submit=False):
+        col_search, col_button = st.columns([5, 1])
+        with col_search:
+            location = st.text_input("", placeholder="Contoh: Jakarta, ID", key="weather_search_input", label_visibility="collapsed")
+        with col_button:
+            search_button = st.form_submit_button("🔍")
+
+    # Proses pencarian saat tombol ditekan atau Enter ditekan
+    if search_button:
+        if not location or location.strip() == "":  # Periksa apakah location kosong atau hanya berisi spasi
+            st.error("Gagal mengambil data cuaca. Pastikan format lokasi benar (city name, city id). Lihat [panduan penulisan lokasi](https://openweathermap.org/current#cityid) untuk informasi lebih lanjut.")
+            # Reset state jika pencarian gagal
+            st.session_state.initial_search = False
+            if 'weather_data' in st.session_state:
+                del st.session_state.weather_data
+            if 'hourly_forecast' in st.session_state:
+                del st.session_state.hourly_forecast
+        else:
+            with st.spinner("Mengambil data cuaca..."):
+                weather_data = fetch_weather_data(location)
+                if weather_data:
+                    st.session_state.weather_data = weather_data
+                    st.session_state.initial_search = True
+                    # Reset slider ke skor awal berdasarkan data API
+                    interpretation = interpret_weather(weather_data)
+                    fishing_info = get_fishing_season_and_conditions(weather_data, interpretation)
+                    # Hitung skor awal berdasarkan data cuaca dari API
+                    suhu = weather_data['temperature']
+                    if suhu > 32:
+                        suhu_score = 0  # Buruk
+                    elif 28 <= suhu <= 32:
+                        suhu_score = 0.5  # Cukup baik
+                    elif 25 <= suhu < 28:
+                        suhu_score = 1  # Bagus
+                    else:
+                        suhu_score = 0  # Buruk
+
+                    kelembapan = weather_data['humidity']
+                    if kelembapan > 85:
+                        kelembapan_score = 0  # Buruk
+                    elif 70 <= kelembapan <= 85:
+                        kelembapan_score = 0.5  # Cukup baik
+                    elif 55 <= kelembapan < 70:
+                        kelembapan_score = 1  # Bagus
+                    else:
+                        kelembapan_score = 0  # Buruk
+
+                    angin = weather_data['wind_speed']
+                    if angin > 8:
+                        angin_score = 0  # Buruk
+                    elif 4 <= angin <= 8:
+                        angin_score = 0.5  # Cukup baik
+                    else:
+                        angin_score = 1  # Bagus
+
+                    kondisi = weather_data['description'].lower()
+                    if "hujan" in kondisi or "rintik" in kondisi or "petir" in kondisi:
+                        kondisi_score = 0  # Buruk
+                    elif "cerah" in kondisi:
+                        kondisi_score = 1  # Bagus
+                    else:
+                        kondisi_score = 0.5  # Cukup baik
+
+                    total_score = suhu_score + kelembapan_score + angin_score + kondisi_score
+                    normalized_score = (total_score / 4) * 5  # Skala 0-4 diubah ke 0-5
+
+                    st.session_state.slider_key = random.randint(1, 1000000)  # Key acak untuk memaksa slider reset
+                    # Reset hourly forecast data
+                    if 'hourly_forecast' in st.session_state:
+                        del st.session_state.hourly_forecast
+                    st.session_state.slider_changed = False  # Reset status slider
+                    st.session_state.last_slider_value = normalized_score  # Update nilai slider
+                else:
+                    st.error("Gagal mengambil data cuaca. Pastikan format lokasi benar (City name, City ID). Lihat [panduan penulisan lokasi](https://openweathermap.org/current#cityid) untuk informasi lebih lanjut.")
+                    # Reset state jika pencarian gagal
+                    st.session_state.initial_search = False
+                    if 'weather_data' in st.session_state:
+                        del st.session_state.weather_data
+                    if 'hourly_forecast' in st.session_state:
+                        del st.session_state.hourly_forecast
+
+    # Gunakan data cuaca dari session state jika tersedia
+    if 'weather_data' in st.session_state and st.session_state.get('initial_search', False):
+        weather_data = st.session_state.weather_data
+
+        # Cuaca Terkini dengan kartu yang lebih kecil
+        st.markdown("<div class='dashboard-title' style='font-size: 1.2em; margin-top: 20px;'>Cuaca Terkini</div>", unsafe_allow_html=True)
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.markdown(f"""
+            <div class="weather-card">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon">📍</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Lokasi</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: #A855F7;">{weather_data['location']}</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">{weather_data['timestamp']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+            <div class="weather-card">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon">🌡️</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Suhu</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: #10B981;">{weather_data['temperature']}°C</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">{weather_data['description']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"""
+            <div class="weather-card">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon">💧</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Kelembapan</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: #3B82F6;">{weather_data['humidity']}%</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">Tekanan: {weather_data['pressure']} hPa</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col4:
+            st.markdown(f"""
+            <div class="weather-card">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon">💨</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Kecepatan Angin</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: #A855F7;">{weather_data['wind_speed']} m/s</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">
+                    {"Angin kencang, dapat memengaruhi stabilitas perahu." if weather_data['wind_speed'] > 10 else "Angin sedang, cukup aman untuk memancing." if weather_data['wind_speed'] > 5 else "Angin lemah, kondisi ideal untuk memancing."}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        
+
+        # Hourly Forecast (24 jam ke depan, interval 3 jam)
+        # Hanya jalankan jika weather_data tersedia
+        if 'weather_data' in st.session_state and st.session_state.get('initial_search', False):
+            st.markdown("<div class='dashboard-title' style='font-size: 1.2em; margin-top: 20px;'>Ramalan Per 3 Jam (24 Jam)</div>", unsafe_allow_html=True)
+
+            # Simpan data forecast di session state
+            if 'hourly_forecast' not in st.session_state:
+                st.session_state.hourly_forecast = fetch_hourly_forecast(location)
+
+            hourly_forecast = st.session_state.hourly_forecast
+            if hourly_forecast:
+                # Gunakan kolom untuk menampilkan 4 kartu per baris
+                for i in range(0, len(hourly_forecast), 4):
+                    cols = st.columns(4)
+                    for j in range(4):
+                        if i + j < len(hourly_forecast):
+                            hour = hourly_forecast[i + j]
+                            # Tentukan ikon cuaca dan status berdasarkan kode ikon dari API
+                            if hour['icon'] == '01d':
+                                weather_icon = "☀️"  # Cerah (siang)
+                                status = "Cerah"
+                                status_color = "#10B981"  # Hijau untuk cerah
+                            elif hour['icon'] == '01n':
+                                weather_icon = "🌙"  # Cerah (malam)
+                                status = "Cerah"
+                                status_color = "#10B981"
+                            elif hour['icon'] in ['02d', '03d', '04d']:
+                                weather_icon = "⛅"  # Berawan (siang)
+                                status = "Berawan"
+                                status_color = "#FBBF24"  # Kuning untuk berawan
+                            elif hour['icon'] in ['02n', '03n', '04n']:
+                                weather_icon = "🌥️"  # Berawan (malam)
+                                status = "Berawan"
+                                status_color = "#FBBF24"
+                            elif hour['icon'] in ['09d', '09n', '10d', '10n']:
+                                weather_icon = "🌦️"  # Hujan rintik-rintik
+                                status = "Hujan"
+                                status_color = "#3B82F6"  # Biru untuk hujan
+                            elif hour['icon'] in ['11d', '11n']:
+                                weather_icon = "⛈️"  # Hujan petir
+                                status = "Petir"
+                                status_color = "#EF4444"  # Merah untuk petir
+                            else:
+                                weather_icon = "☁️"  # Default: berawan
+                                status = "Berawan"
+                                status_color = "#FBBF24"
+
+                            with cols[j]:
+                                st.markdown(f"""
+                                <div class='weather-card'>
+                                    <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                                        <span class="weather-icon">⏰</span>
+                                        <div style="font-size: 0.8em; color: #CBD5E0;">{hour['time']}</div>
+                                    </div>
+                                    <div style="font-size: 1em; font-weight: 600; color: #EDE9FE;">{weather_icon} {hour['temperature']}°C</div>
+                                    <div style="font-size: 0.7em; color: {status_color}; margin-top: 3px;">{status}</div>
+                                </div>
+                                """, unsafe_allow_html=True)
+        else:
+            st.warning("Tidak dapat mengambil data Ramalan per 3 jam.")
+
+        # Ramalan Memancing dengan box
+        # Ramalan Memancing dengan box
+        st.markdown("<div class='forecast-box'>", unsafe_allow_html=True)
+        st.markdown("<div class='dashboard-title' style='font-size: 1.2em; margin-top: 0;'>Ramalan Memancing</div>", unsafe_allow_html=True)
+
+        # Inisialisasi fishing_info dengan nilai default
+        fishing_info = {"source": "Belum ada data cuaca."}  # Nilai default jika belum ada data
+
+        # Hitung skor awal berdasarkan data cuaca dari API jika tersedia
+        if 'weather_data' in st.session_state and st.session_state.get('initial_search', False):
+            # Analisis Suhu
+            suhu = weather_data['temperature']
+            if suhu > 32:
+                suhu_score = 0  # Buruk
+            elif 28 <= suhu <= 32:
+                suhu_score = 0.5  # Cukup baik
+            elif 25 <= suhu < 28:
+                suhu_score = 1  # Bagus
+            else:
+                suhu_score = 0  # Buruk
+
+            # Analisis Kelembapan
+            kelembapan = weather_data['humidity']
+            if kelembapan > 85:
+                kelembapan_score = 0  # Buruk
+            elif 70 <= kelembapan <= 85:
+                kelembapan_score = 0.5  # Cukup baik
+            elif 55 <= kelembapan < 70:
+                kelembapan_score = 1  # Bagus
+            else:
+                kelembapan_score = 0  # Buruk
+
+            # Analisis Kecepatan Angin
+            angin = weather_data['wind_speed']
+            if angin > 8:
+                angin_score = 0  # Buruk
+            elif 4 <= angin <= 8:
+                angin_score = 0.5  # Cukup baik
+            else:
+                angin_score = 1  # Bagus
+
+            # Analisis Kondisi Hujan
+            kondisi = weather_data['description'].lower()
+            if "hujan" in kondisi or "rintik" in kondisi or "petir" in kondisi:
+                kondisi_score = 0  # Buruk
+            elif "cerah" in kondisi:
+                kondisi_score = 1  # Bagus
+            else:
+                kondisi_score = 0.5  # Cukup baik
+
+            # Hitung total skor dan normalisasi ke skala 0-5
+            total_score = suhu_score + kelembapan_score + angin_score + kondisi_score
+            normalized_score = (total_score / 4) * 5  # Skala 0-4 diubah ke 0-5
+
+            # Inisialisasi fishing_info dengan data API
+            interpretation = interpret_weather(weather_data)
+            fishing_info = get_fishing_season_and_conditions(weather_data, interpretation)
+        else:
+            # Nilai default jika belum ada data cuaca
+            normalized_score = 0.0
+
+        # Reset status slider agar nilai awal selalu mengikuti data API terbaru
+        st.session_state.slider_changed = False
+        st.session_state.last_slider_value = normalized_score
+
+        # Slider untuk simulasi skor
+        simulated_score = st.slider("Simulasi Skor Ramalan", min_value=0.0, max_value=5.0, value=normalized_score, step=0.1, key=f"simulated_score_slider_{st.session_state.get('slider_key', 0)}")
+        st.markdown("<div style='font-size: 0.7em; color: #A0AEC0; text-align: center; margin: 5px 0;'><i>Geser untuk mensimulasikan kondisi cuaca (Sumber: Farmers' Almanac, Fishing Booker). Tekan 🔍 pada bar pencarian untuk kembali keposisi lokasi semula.</i></div>", unsafe_allow_html=True)
+
+        # Tentukan apakah slider telah digeser oleh pengguna
+        if 'last_slider_value' not in st.session_state:
+            st.session_state.last_slider_value = normalized_score
+        if abs(simulated_score - st.session_state.last_slider_value) > 0.1:  # Deteksi perubahan slider
+            st.session_state.slider_changed = True
+        st.session_state.last_slider_value = simulated_score
+
+        # Gunakan data API jika slider belum digeser, gunakan data simulasi jika slider digeser
+        if not st.session_state.get('slider_changed', False):
+            # Gunakan data API asli jika tersedia
+            if 'weather_data' in st.session_state and st.session_state.get('initial_search', False):
+                current_data = weather_data
+                current_fishing_info = fishing_info
+                current_score = normalized_score
+            else:
+                # Nilai default jika belum ada data cuaca
+                current_data = {
+                    "temperature": 0.0,
+                    "humidity": 0,
+                    "wind_speed": 0.0,
+                    "description": "Tidak ada data"
+                }
+                current_fishing_info = fishing_info
+                current_score = 0.0
+        else:
+            # Simulasi data acak berdasarkan skor (0: buruk, 5: optimal)
+            if simulated_score <= 1:  # Kondisi buruk
+                simulated_temp = random.uniform(35, 40)  # Suhu sangat panas
+                simulated_humidity = random.uniform(85, 95)  # Kelembapan sangat tinggi
+                simulated_wind_speed = random.uniform(10, 20)  # Angin kencang
+                simulated_weather_desc = "Hujan Lebat"
+            elif simulated_score <= 2:  # Kondisi agak buruk
+                simulated_temp = random.uniform(32, 35)  # Suhu panas
+                simulated_humidity = random.uniform(75, 85)  # Kelembapan tinggi
+                simulated_wind_speed = random.uniform(7, 10)  # Angin agak kencang
+                simulated_weather_desc = "Rintik-Rintik"
+            elif simulated_score <= 3:  # Kondisi sedang
+                simulated_temp = random.uniform(30, 32)  # Suhu agak panas
+                simulated_humidity = random.uniform(65, 75)  # Kelembapan normal
+                simulated_wind_speed = random.uniform(4, 7)  # Angin sedang
+                simulated_weather_desc = "Berawan"
+            else:  # Kondisi baik
+                simulated_temp = random.uniform(25, 30)  # Suhu ideal
+                simulated_humidity = random.uniform(55, 65)  # Kelembapan optimal
+                simulated_wind_speed = random.uniform(1, 4)  # Angin lemah
+                simulated_weather_desc = "Cerah"
+
+            # Simulasi data
+            simulated_data = {
+                "temperature": round(simulated_temp, 2),
+                "humidity": round(simulated_humidity),
+                "wind_speed": round(simulated_wind_speed, 1),
+                "description": simulated_weather_desc
+            }
+            current_data = simulated_data
+            current_fishing_info = get_fishing_season_and_conditions(simulated_data, interpret_weather(simulated_data))
+            current_score = simulated_score
+
+        # Tentukan kondisi cuaca dan memancing berdasarkan current_score (yang mencerminkan simulated_score)
+        current_hour = datetime.now().hour
+        is_daytime = 6 <= current_hour < 18  # Pagi hingga sore (06:00-18:00)
+
+        # Sesuaikan kondisi cuaca berdasarkan waktu dan nilai slider (current_score)
+        if is_daytime:
+            if current_score <= 1:  # Buruk
+                current_weather_desc = "Panas dan Hujan"
+                current_weather_icon = "⛈️"
+                weather_desc_text = "Cuaca buruk, memancing sangat sulit karena panas dan hujan."
+            elif current_score <= 2:  # Agak buruk
+                current_weather_desc = "Panas"
+                current_weather_icon = "☀️"
+                weather_desc_text = "Cuaca panas, memancing mungkin lebih sulit karena ikan cenderung mencari tempat teduh."
+            elif current_score <= 3:  # Sedang
+                current_weather_desc = "Berawan"
+                current_weather_icon = "⛅"
+                weather_desc_text = "Cuaca berawan, cukup baik untuk memancing."
+            else:  # Bagus
+                current_weather_desc = "Cerah"
+                current_weather_icon = "☀️"
+                weather_desc_text = "Cuaca cerah, sangat mendukung untuk memancing."
+        else:  # Malam
+            if current_score <= 1:  # Buruk
+                current_weather_desc = "Hujan dan Dingin"
+                current_weather_icon = "⛈️"
+                weather_desc_text = "Cuaca buruk, memancing sangat sulit karena hujan dan dingin."
+            elif current_score <= 2:  # Agak buruk
+                current_weather_desc = "Hangat"
+                current_weather_icon = "🌙"
+                weather_desc_text = "Cuaca hangat di malam hari, memancing masih memungkinkan tetapi ikan mungkin kurang aktif."
+            elif current_score <= 3:  # Sedang
+                current_weather_desc = "Berawan"
+                current_weather_icon = "⛅"
+                weather_desc_text = "Cuaca berawan di malam hari, cukup baik untuk memancing."
+            else:  # Bagus
+                current_weather_desc = "Cerah"
+                current_weather_icon = "🌙"
+                weather_desc_text = "Cuaca cerah di malam hari, sangat mendukung untuk memancing."
+
+        current_condition = "Baik" if current_score >= 3 else "Cukup Baik" if current_score >= 1 else "Kurang Baik"
+        current_color = "#10B981" if current_score >= 3 else "#FBBF24" if current_score >= 1 else "#EF4444"
+        current_icon = "✅" if current_score >= 3 else "⚠️" if current_score >= 1 else "❌"
+
+        # Tampilan Ramalan Memancing
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            st.markdown(f"""
+            <div class="weather-card" style="padding: 10px; min-height: 100px;">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon" style="font-size: 1.2em;">{current_weather_icon}</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Kondisi Cuaca</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: #A855F7;">{current_weather_desc}</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">{weather_desc_text}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+            <div class="weather-card" style="padding: 10px; min-height: 100px;">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon" style="font-size: 1.2em;">{current_icon}</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Kondisi Memancing</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: {current_color};">{current_condition}</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">Skor: {current_score:.1f} dari 5</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Detail Analisis dengan Expander
+        with st.expander("Detail Analisis"):
+            # Analisis Suhu
+            suhu = current_data['temperature']
+            if suhu > 32:
+                suhu_desc = "Suhu terlalu panas, buruk untuk ikan tropis."
+                suhu_pros = "Meningkatkan metabolisme ikan dalam jangka pendek."
+                suhu_cons = "Meningkatkan risiko stres panas, penyakit, dan kematian ikan."
+                suhu_score = 0  # Buruk
+            elif 28 <= suhu <= 32:
+                suhu_desc = "Suhu agak panas, cukup baik untuk ikan tropis."
+                suhu_pros = "Mendukung aktivitas ikan, tetapi perlu pemantauan."
+                suhu_cons = "Dapat menyebabkan stres jika berlangsung lama."
+                suhu_score = 0.5  # Cukup baik
+            elif 25 <= suhu < 28:
+                suhu_desc = "Suhu ideal untuk sebagian besar ikan tropis."
+                suhu_pros = "Mendukung pertumbuhan dan aktivitas ikan optimal."
+                suhu_cons = "Tidak ada dampak negatif signifikan."
+                suhu_score = 1  # Bagus
+            else:
+                suhu_desc = "Suhu terlalu dingin, kurang optimal untuk ikan tropis."
+                suhu_pros = "Mengurangi risiko penyakit akibat panas."
+                suhu_cons = "Memperlambat metabolisme dan aktivitas ikan."
+                suhu_score = 0  # Buruk
+
+            # Analisis Kelembapan
+            kelembapan = current_data['humidity']
+            if kelembapan > 85:
+                kelembapan_desc = "Kelembapan terlalu tinggi, buruk untuk perikanan."
+                kelembapan_pros = "Mendukung lingkungan lembap untuk ikan tertentu."
+                kelembapan_cons = "Meningkatkan risiko jamur dan penyakit di kolam."
+                kelembapan_score = 0  # Buruk
+            elif 70 <= kelembapan <= 85:
+                kelembapan_desc = "Kelembapan agak tinggi, cukup baik untuk perikanan."
+                kelembapan_pros = "Mendukung ekosistem air yang stabil."
+                kelembapan_cons = "Dapat sedikit meningkatkan risiko jamur."
+                kelembapan_score = 0.5  # Cukup baik
+            elif 55 <= kelembapan < 70:
+                kelembapan_desc = "Kelembapan ideal, sangat baik untuk perikanan."
+                kelembapan_pros = "Stabil untuk ekosistem air dan udara."
+                kelembapan_cons = "Tidak ada dampak negatif signifikan."
+                kelembapan_score = 1  # Bagus
+            else:
+                kelembapan_desc = "Kelembapan terlalu rendah, kurang optimal."
+                kelembapan_pros = "Mengurangi risiko jamur di lingkungan."
+                kelembapan_cons = "Dapat menyebabkan kekeringan pada permukaan air."
+                kelembapan_score = 0  # Buruk
+
+            # Analisis Kecepatan Angin
+            angin = current_data['wind_speed']
+            if angin > 8:
+                angin_desc = "Angin kencang, buruk untuk perikanan."
+                angin_pros = "Meningkatkan sirkulasi udara di kolam terbuka."
+                angin_cons = "Berisiko untuk stabilitas perahu dan operasi laut."
+                angin_score = 0  # Buruk
+            elif 4 <= angin <= 8:
+                angin_desc = "Angin sedang, cukup aman untuk memancing."
+                angin_pros = "Mendukung sirkulasi udara tanpa risiko besar."
+                angin_cons = "Dapat sedikit mengganggu stabilitas perahu kecil."
+                angin_score = 0.5  # Cukup baik
+            else:
+                angin_desc = "Angin lemah, kondisi ideal untuk perikanan."
+                angin_pros = "Aman untuk operasi perikanan di laut."
+                angin_cons = "Tidak ada dampak negatif signifikan."
+                angin_score = 1  # Bagus
+
+            # Analisis Kondisi Hujan
+            kondisi = current_data['description'].lower()
+            if "hujan" in kondisi or "rintik" in kondisi or "petir" in kondisi:
+                kondisi_desc = "Hujan, kondisi buruk untuk memancing."
+                kondisi_pros = "Meningkatkan kadar oksigen di air."
+                kondisi_cons = "Visibilitas air buruk, memancing lebih sulit."
+                kondisi_score = 0  # Buruk
+            elif "cerah" in kondisi:
+                kondisi_desc = "Cerah, kondisi ideal untuk memancing."
+                kondisi_pros = "Visibilitas air baik, memancing lebih mudah."
+                kondisi_cons = "Tidak ada dampak negatif signifikan."
+                kondisi_score = 1  # Bagus
+            else:
+                kondisi_desc = "Berawan, kondisi cukup baik untuk memancing."
+                kondisi_pros = "Suhu lebih stabil, ikan lebih aktif."
+                kondisi_cons = "Cahaya matahari berkurang, mungkin memengaruhi visibilitas."
+                kondisi_score = 0.5  # Cukup baik
+
+            # Tampilkan data dengan analisis
+            st.markdown(f"""
+            <div class="weather-card" style="padding: 10px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon" style="font-size: 1.2em;">🌡️</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Suhu</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: #10B981;">{suhu}°C</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">
+                    {suhu_desc}<br>
+                    <strong>Kelebihan:</strong> {suhu_pros}<br>
+                    <strong>Kekurangan:</strong> {suhu_cons}
+                </div>
+            </div>
+            <div class="weather-card" style="padding: 10px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon" style="font-size: 1.2em;">💧</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Kelembapan</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: #3B82F6;">{kelembapan}%</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">
+                    {kelembapan_desc}<br>
+                    <strong>Kelebihan:</strong> {kelembapan_pros}<br>
+                    <strong>Kekurangan:</strong> {kelembapan_cons}
+                </div>
+            </div>
+            <div class="weather-card" style="padding: 10px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon" style="font-size: 1.2em;">💨</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Kecepatan Angin</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: #A855F7;">{angin} m/s</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">
+                    {angin_desc}<br>
+                    <strong>Kelebihan:</strong> {angin_pros}<br>
+                    <strong>Kekurangan:</strong> {angin_cons}
+                </div>
+            </div>
+            <div class="weather-card" style="padding: 10px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <span class="weather-icon" style="font-size: 1.2em;">☁️</span>
+                    <div style="font-size: 0.8em; color: #CBD5E0;">Kondisi Hujan</div>
+                </div>
+                <div style="font-size: 1em; font-weight: 600; color: #EDE9FE;">{current_data['description']}</div>
+                <div style="font-size: 0.7em; color: #A0AEC0; margin-top: 3px;">
+                    {kondisi_desc}<br>
+                    <strong>Kelebihan:</strong> {kondisi_pros}<br>
+                    <strong>Kekurangan:</strong> {kondisi_cons}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Tutup box
+        st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.warning("Silakan masukkan lokasi untuk melihat Ramalan cuaca.")
+
 def handle_csv_upload_and_analysis():
     """Handle CSV upload and data analysis with improved UI"""
     # Handle CSV upload and data analysis with improved UI
@@ -3483,7 +4353,7 @@ def main():
         
         render_dashboard()
         
-        tabs = st.tabs(["💬 Assistant", "📸 Image Analysis", "📊 Data Analysis"])
+        tabs = st.tabs(["💬 Assistant", "📸 Image Analysis", "📊 Data Analysis", "🌤️ Weather Info"])
         
         with tabs[0]:
             prompt = render_prompt_buttons()
@@ -3543,5 +4413,7 @@ def main():
         with tabs[2]:
             handle_csv_upload_and_analysis()
 
+        with tabs[3]:
+                display_weather_info()
 if __name__ == "__main__":
     main()
