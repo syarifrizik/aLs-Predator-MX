@@ -17,6 +17,7 @@ from datetime import datetime
 import random 
 import pytz
 
+
 # Load environment variables
 dotenv.load_dotenv()
 
@@ -327,34 +328,46 @@ def process_fish_data(df):
 def get_freshness_prompt(model):
     """Get the prompt for fish freshness analysis tailored to the model with high accuracy and confidence"""
     base_prompt = """Analisis Kesegaran Ikan dari Gambar:
-Jika gambar yang diunggah bukan gambar ikan, kembalikan pesan: "Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan." Jika gambar adalah ikan, lanjutkan analisis berikut dengan penuh keyakinan.
+Jika gambar yang diunggah bukan gambar ikan, kembalikan pesan: "Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan." Jika gambar adalah ikan, lanjutkan analisis berikut dengan penuh keyakinan berdasarkan observasi visual yang akurat.
 
-Analisis kesegaran ikan berdasarkan gambar dengan parameter visual berikut:
-- Mata: Perhatikan kejernihan, kilau, dan warna.
-- Insang: Evaluasi warna (merah cerah vs. kecokelatan), kelembapan, dan ada tidaknya lendir berlebih.
-- Lendir permukaan badan: Bedakan antara lendir bening alami dan lendir keruh atau berbau.
-- Sayatan daging: Tinjau warna, tekstur, dan tanda-tanda kerusakan.
+Lakukan analisis kesegaran ikan berdasarkan parameter visual berikut:
+- Mata: Perhatikan kejernihan (jernih vs. keruh), kilau (mengilap vs. kusam), posisi (cembung vs. cekung), dan warna kornea (bening vs. kekuningan).
+- Insang: Evaluasi warna (merah cerah vs. merah pucat, abu-abu, atau kecokelatan), kelembapan (basah vs. kering), bau (segar vs. menyengat), dan ada tidaknya lendir berlebih.
+- Lendir permukaan badan: Bedakan antara lendir bening tipis (alami, segar) dan lendir tebal keruh (tanda pembusukan). Perhatikan bau (netral vs. busuk).
+- Sayatan daging: Tinjau warna (merah segar atau alami vs. kecokelatan/pucat), tekstur (kenyal vs. lembek), dan tanda-tanda kerusakan (berair, bau busuk).
 
-Skor kesegaran:
-- Sangat Baik (Excellent): 9 (semua parameter menunjukkan kesegaran optimal).
-- Masih Baik (Good): 7-8 (minor ketidaksempurnaan pada satu atau dua parameter).
-- Tidak Segar (Moderate): 5-6 (tanda-tanda penurunan kualitas yang jelas).
-- Sangat Tidak Segar (Spoiled): 1-4 (kerusakan signifikan pada sebagian besar parameter).
+Skor kesegaran untuk setiap parameter (1-9):
+- 9 (Sangat Baik): Parameter menunjukkan kesegaran optimal (misalnya mata jernih cembung, insang merah cerah basah).
+- 7-8 (Masih Baik): Minor ketidaksempurnaan (misalnya mata sedikit keruh, insang merah agak pucat).
+- 5-6 (Tidak Segar): Tanda penurunan kualitas jelas (misalnya mata cekung, insang abu-abu kering).
+- 1-4 (Sangat Tidak Segar): Kerusakan signifikan (misalnya mata keruh kekuningan, insang kecokelatan bau).
+
+Hitung skor rata-rata dari semua parameter dan tentukan kategori kesegaran:
+- Prima: Rata-rata = 9
+- Advance: Rata-rata 7-8.9
+- Sedang: Rata-rata 5-6.9
+- Busuk: Rata-rata 1-4.9
 
 Kembalikan hasil dalam format berikut:
 Kesimpulan:
-Skor: [X dari 9, berdasarkan analisis visual yang pasti].
-Alasan: [Jelaskan dengan yakin berdasarkan observasi parameter di atas, hindari keraguan atau asumsi]."""
+Skor: [X dari 9, berdasarkan rata-rata parameter].
+Kategori: [Prima/Advance/Sedang/Busuk].
+Detail:
+- Mata: [skor, alasan berdasarkan observasi].
+- Insang: [skor, alasan berdasarkan observasi].
+- Lendir: [skor, alasan berdasarkan observasi].
+- Daging: [skor, alasan berdasarkan observasi].
+Alasan Keseluruhan: [Jelaskan dengan yakin mengapa skor ini diberikan, hindari keraguan atau asumsi]."""
 
     model_prompts = {
-        "Neptune-Savant": f"{base_prompt}\n\nAnalisis setiap parameter dengan logika mendalam dan berikan penjelasan rinci berdasarkan observasi visual yang akurat.",
-        "ReefSpark-Lite": f"{base_prompt}\n\nFokus pada analisis cepat dan akurat, berikan deskripsi singkat namun pasti untuk setiap parameter.",
-        "WaveCore-Ultra": f"{base_prompt}\n\nLakukan analisis menyeluruh dengan detail visual maksimal, pastikan skor dan alasan sangat akurat.",
-        "AquaVision-Pro": f"{base_prompt}\n\nGunakan penglihatan canggih untuk mengevaluasi setiap parameter dengan presisi tinggi dan hasil yang meyakinkan.",
-        "TidalFlux-Max": f"{base_prompt}\n\nBerikan analisis kuat dengan penjelasan terstruktur dan penuh keyakinan untuk setiap aspek kesegaran.",
-        "CoralPulse-Lite": f"{base_prompt}\n\nSederhanakan analisis dengan ringkasan cepat, tetap pastikan skor dan alasan akurat tanpa keraguan.",
-        "DeepMind-Classic": f"{base_prompt}\n\nGunakan pendekatan andal untuk menilai kesegaran dengan alasan yang jelas dan tegas.",
-        "OceanVault-Extended": f"{base_prompt}\n\nBerikan analisis ekstensif dengan deskripsi mendalam dan pasti untuk setiap parameter."
+        "Neptune-Savant": f"{base_prompt}\n\nAnalisis setiap parameter dengan logika mendalam. Berikan skor dan alasan rinci berdasarkan observasi visual, seperti perubahan warna insang atau tekstur daging.",
+        "ReefSpark-1.5": f"{base_prompt}\n\nFokus pada analisis cepat dan akurat. Berikan skor untuk setiap parameter dengan alasan singkat namun pasti, misalnya kejernihan mata atau warna insang.",
+        "WaveCore-Pro": f"{base_prompt}\n\nLakukan analisis menyeluruh dengan detail visual maksimal. Berikan skor untuk setiap parameter dan jelaskan secara rinci, misalnya bagaimana lendir menunjukkan kesegaran.",
+        "AquaVision-4": f"{base_prompt}\n\nGunakan penglihatan canggih untuk mengevaluasi setiap parameter dengan presisi tinggi. Sertakan alasan visual spesifik, seperti kilau mata atau kelembapan insang.",
+        "TidalFlux-4": f"{base_prompt}\n\nBerikan analisis kuat dengan penjelasan terstruktur untuk setiap parameter. Jelaskan skor berdasarkan observasi seperti tekstur daging atau bau lendir.",
+        "CoralPulse-3.5": f"{base_prompt}\n\nSederhanakan analisis dengan skor dan ringkasan singkat untuk setiap parameter. Pastikan alasan akurat, misalnya warna insang pucat menunjukkan ketidaksegaran.",
+        "DeepMind-4": f"{base_prompt}\n\nGunakan pendekatan andal untuk menilai kesegaran. Berikan skor dan alasan tegas berdasarkan observasi seperti mata cekung atau daging lembek.",
+        "OceanVault-4": f"{base_prompt}\n\nBerikan analisis ekstensif dengan skor dan deskripsi mendalam untuk setiap parameter. Jelaskan secara rinci, misalnya bagaimana lendir keruh menunjukkan pembusukan."
     }
     
     return model_prompts.get(model, base_prompt)
@@ -362,27 +375,37 @@ Alasan: [Jelaskan dengan yakin berdasarkan observasi parameter di atas, hindari 
 def get_analisis_ikan_prompt(model):
     """Get the prompt for fish species analysis tailored to the model with mandatory table"""
     base_prompt = """Analisis Spesies Ikan dari Gambar:
-Jika gambar yang diunggah bukan gambar ikan, kembalikan pesan: "Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan." Jika gambar adalah ikan, identifikasi spesies dengan penuh keyakinan.
+Jika gambar yang diunggah bukan gambar ikan, kembalikan pesan: "Mohon masukkan gambar ikan secara jelas. Analisis ini hanya berlaku untuk gambar ikan." Jika gambar adalah ikan, identifikasi spesies dengan penuh keyakinan dan hindari generalisasi.
 
-Analisis spesies ikan berdasarkan gambar dengan fokus pada ciri-ciri visual seperti bentuk tubuh, warna, pola sisik, sirip, dan kepala. Kembalikan hasil dalam format tabel berikut (wajib digunakan, tanpa pengecualian):
+Lakukan analisis spesies ikan berdasarkan gambar dengan fokus pada ciri-ciri visual berikut:
+- Bentuk tubuh: Perhatikan proporsi tubuh (misalnya ramping, bulat, atau memanjang).
+- Pola sisik: Amati ukuran, bentuk, dan pola sisik (misalnya sisik kecil mengilap atau besar kasar).
+- Sirip: Perhatikan bentuk, ukuran, dan posisi sirip (misalnya sirip punggung panjang atau pendek).
+- Warna: Catat warna dominan dan pola warna (misalnya garis-garis, bintik, atau warna seragam).
+- Kepala: Perhatikan bentuk kepala dan mata (misalnya mata besar atau kecil, moncong tumpul atau runcing).
+- Nama lokal: Gunakan nama lokal yang umum di Indonesia (misalnya 'tongkol' bukan hanya 'tuna').
+
+Hindari mengacaukan spesies yang mirip, seperti ikan tongkol (Euthynnus affinis) dengan tuna (Thunnus spp.). Jika ragu, jelaskan alasan berdasarkan ciri visual yang terdeteksi.
+
+Kembalikan hasil dalam format tabel berikut (wajib digunakan, tanpa pengecualian):
 
 | Kategori    | Detail       |
 |-------------|--------------|
-| Nama Lokal  | [nama ikan]  |
-| Nama Ilmiah | [nama latin] |
-| Famili      | [famili]     |
+| Nama Lokal  | [nama ikan, gunakan istilah lokal Indonesia]  |
+| Nama Ilmiah | [nama latin, pastikan akurat] |
+| Famili      | [famili, misalnya Scombridae] |
 
-Setelah tabel, sertakan penjelasan singkat dan tegas tentang ciri-ciri visual yang digunakan untuk identifikasi, berdasarkan analisis gambar digital. Hindari keraguan atau kalimat tidak pasti."""
+Setelah tabel, sertakan penjelasan singkat dan tegas tentang ciri-ciri visual spesifik yang digunakan untuk identifikasi, termasuk mengapa spesies ini dipilih dan bukan spesies serupa. Hindari keraguan atau kalimat tidak pasti."""
 
     model_prompts = {
-        "Neptune-Savant": f"{base_prompt}\n\nGunakan penalaran mendalam untuk mengidentifikasi spesies secara akurat, berikan detail ciri-ciri spesifik dalam penjelasan.",
-        "ReefSpark-Lite": f"{base_prompt}\n\nLakukan identifikasi cepat dan pasti, berikan penjelasan singkat berdasarkan ciri utama.",
-        "WaveCore-Ultra": f"{base_prompt}\n\nBerikan analisis spesies menyeluruh dengan fokus pada semua ciri visual, pastikan tabel dan penjelasan akurat.",
-        "AquaVision-Pro": f"{base_prompt}\n\nManfaatkan penglihatan canggih untuk identifikasi presisi tinggi, sertakan penjelasan visual yang tajam.",
-        "TidalFlux-Max": f"{base_prompt}\n\nHasilkan identifikasi kuat dengan tabel dan deskripsi terperinci tentang ciri-ciri spesies.",
-        "CoralPulse-Lite": f"{base_prompt}\n\nSederhanakan identifikasi dengan tabel dan ringkasan langsung yang pasti.",
-        "DeepMind-Classic": f"{base_prompt}\n\nGunakan metode andal untuk identifikasi spesies yang solid, pastikan tabel dan penjelasan tegas.",
-        "OceanVault-Extended": f"{base_prompt}\n\nBerikan identifikasi ekstensif dengan tabel dan penjelasan lengkap tentang setiap ciri spesies."
+        "Neptune-Savant": f"{base_prompt}\n\nGunakan penalaran mendalam untuk mengidentifikasi spesies secara akurat. Berikan detail ciri-ciri spesifik, seperti perbedaan antara ikan tongkol dan tuna berdasarkan bentuk sirip atau pola warna.",
+        "ReefSpark-1.5": f"{base_prompt}\n\nLakukan identifikasi cepat dan pasti berdasarkan ciri utama. Jika spesies mirip (misalnya tongkol vs. tuna), sebutkan perbedaan kunci seperti ukuran tubuh atau bentuk sirip.",
+        "WaveCore-Pro": f"{base_prompt}\n\nBerikan analisis menyeluruh dengan fokus pada semua ciri visual. Jelaskan secara rinci mengapa spesies tertentu dipilih, misalnya berdasarkan pola sisik atau warna tubuh yang khas untuk tongkol.",
+        "AquaVision-4": f"{base_prompt}\n\nManfaatkan penglihatan canggih untuk identifikasi presisi tinggi. Sertakan penjelasan visual tajam, seperti perbedaan bentuk kepala antara tongkol dan tuna.",
+        "TidalFlux-4": f"{base_prompt}\n\nHasilkan identifikasi kuat dengan tabel dan deskripsi terperinci tentang ciri-ciri spesies, termasuk mengapa tongkol bukan tuna berdasarkan ciri visual.",
+        "CoralPulse-3.5": f"{base_prompt}\n\nSederhanakan identifikasi dengan tabel dan ringkasan langsung yang pasti. Sebutkan ciri utama seperti warna atau sirip untuk membedakan tongkol dari tuna.",
+        "DeepMind-4": f"{base_prompt}\n\nGunakan metode andal untuk identifikasi spesies yang solid. Pastikan tabel dan penjelasan tegas, misalnya berdasarkan bentuk tubuh tongkol yang lebih ramping.",
+        "OceanVault-4": f"{base_prompt}\n\nBerikan identifikasi ekstensif dengan tabel dan penjelasan lengkap tentang setiap ciri spesies, termasuk perbandingan dengan spesies serupa seperti tuna."
     }
     
     return model_prompts.get(model, base_prompt)
@@ -2680,6 +2703,7 @@ def render_dashboard():
         </div>
     """, unsafe_allow_html=True)
 
+
 def handle_sidebar_and_model_selection():
     with st.sidebar:
         # Sidebar header (tetap sama)
@@ -2767,6 +2791,7 @@ def handle_sidebar_and_model_selection():
         </div>
         """, unsafe_allow_html=True)
 
+# API KEY
     # Return placeholder values (tetap sama)
     model = "default_model"
     model_type = None
@@ -2830,7 +2855,8 @@ def handle_image_upload():
                 except Exception as e:
                     st.error(f"Error membuka gambar: {str(e)}")
                     return None, None, None, None, None, None, None
-            
+
+            # API KEY
             with col2:
                 openai_api_key = os.getenv("OPENAI_API_KEY", "")
                 google_api_key = os.getenv("GOOGLE_API_KEY", "")
@@ -2852,14 +2878,8 @@ def handle_image_upload():
                 # Model name mapping tetap sama seperti sebelumnya
                 model_name_mapping = {
                     "AquaDepth-Elite": "gpt-4o",  
-                    # ndk bise lihat gambar itu dokomentar:
-                    # "AquaFlow-Max": "gpt-4-turbo",
-                    # "AquaPulse-Lite": "gpt-3.5-turbo-16k",
-                    # "AquaCore-Classic": "gpt-4",
-                    # "AquaDepth-XL": "gpt-4-32k",
-                    "NeptuneFlow-Prime": "gemini-1.5-flash",  # Mengambil "Flow" dari "AquaFlow-Max" + "Prime"
+                    "NeptuneFlow-Prime": "gemini-1.5-flash",  
                     "NeptuneWave-Regal": "gemini-1.5-pro", 
-                    # "ReefEye-Prime": "claude-3-5-sonnet-20240620"
                 }
                 
                 anthropic_models = ["ReefEye-Prime"]
@@ -2867,6 +2887,7 @@ def handle_image_upload():
                 openai_models = ["AquaDepth-Elite"]
                 
                 available_models = [] + (anthropic_models if anthropic_api_key else []) + (google_models if google_api_key else []) + (openai_models if openai_api_key else [])
+                
                 model = st.selectbox("Pilih model Vision Fish:", available_models, index=0)
                 model_type = None
                 
@@ -2877,29 +2898,29 @@ def handle_image_upload():
                 elif model in anthropic_models:
                     model_type = "anthropic"
                 
-                with st.expander("⚙️ Parameter model"):
-                    model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
+                # Menghilangkan bagian parameter model
+                st.markdown(f"<div style='margin-top: 10px; font-size: 0.9em; color: #555;'>Model yang dipilih: <b>{model}</b></div>", unsafe_allow_html=True)
 
                 model_params = {
                     "model": model_name_mapping.get(model, model),
-                    "temperature": model_temp,
+                    # "temperature": model_temp,  # Dihapus
                 }
 
-                # Definisi model_descriptions dengan kata-kata premium baru
+                # Definisi model_descriptions dengan kata-kata premium yang mudah dipahami
                 model_descriptions = {
                     # Kelompok Aqua (OpenAI)
-                    "AquaDepth-Elite": "Unfathomable depth untuk pandangan dan kata yang superior",
-                    # "AquaFlow-Max": "Paramount flow yang mendominasi visual dan narasi elit",
-                    # "AquaPulse-Lite": "Pristine pulse untuk wawasan lisan yang illustrious",
-                    # "AquaCore-Classic": "Timeless core dengan ketajaman visual dan intelek tiada tanding",
-                    # "AquaDepth-XL": "Unfathomable elegance untuk eksplorasi gambar dan kata prestisius",
+                    "AquaDepth-Elite": "Keunggulan luar biasa untuk analisis gambar dan teks yang mendalam",
+                    # "AquaFlow-Max": "Kehebatan visual dan narasi yang memimpin dengan elegan",
+                    # "AquaPulse-Lite": "Kejernihan sempurna untuk wawasan cepat dan berkelas",
+                    # "AquaCore-Classic": "Klasik abadi dengan ketajaman visual dan intelektual",
+                    # "AquaDepth-XL": "Kemewahan tak tertandingi untuk eksplorasi gambar dan teks",
                     
                     # Kelompok Neptune (Google)
-                    "NeptuneFlow-Prime": "Paramount current dengan pengelihatan visual dan wawasan dengan kecepatan divine",
-                    "NeptuneWave-Regal": "Sovereign tide untuk penglihatan dan pemahaman yang tak tertandingi",
+                    "NeptuneFlow-Prime": "Kecepatan dan ketepatan unggul untuk penglihatan dan analisis",
+                    "NeptuneWave-Regal": "Keagungan dalam penglihatan dan pemahaman yang presisi",
                     
                     # Kelompok Reef (Anthropic)
-                    "ReefCore-Illustrious": "Pinnacle essence yang menyatukan gambar dan narasi dengan kehalusan luar biasa"
+                    "ReefCore-Illustrious": "Kecemerlangan yang memadukan gambar dan narasi dengan sempurna"
                 }
 
 
@@ -3541,6 +3562,8 @@ def display_weather_info():
 
         # Hitung skor awal berdasarkan data cuaca dari API jika tersedia
         if 'weather_data' in st.session_state and st.session_state.get('initial_search', False):
+            weather_data = st.session_state.weather_data  # Ambil data cuaca dari session state
+
             # Analisis Suhu
             suhu = weather_data['temperature']
             if suhu > 32:
@@ -3598,7 +3621,7 @@ def display_weather_info():
 
         # Slider untuk simulasi skor
         simulated_score = st.slider("Simulasi Skor Ramalan", min_value=0.0, max_value=5.0, value=normalized_score, step=0.1, key=f"simulated_score_slider_{st.session_state.get('slider_key', 0)}")
-        st.markdown("<div style='font-size: 0.7em; color: #A0AEC0; text-align: center; margin: 5px 0;'><i>Geser untuk mensimulasikan kondisi cuaca (Sumber: Farmers' Almanac, Fishing Booker). Tekan 🔍 pada bar pencarian untuk kembali keposisi lokasi semula.</i></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 0.7em; color: #A0AEC0; text-align: center; margin: 5px 0;'><i>Geser untuk mensimulasikan kondisi cuaca (Sumber: Farmers' Almanac, Fishing Booker). Tekan 🔍 pada bar pencarian untuk kembali ke posisi lokasi semula.</i></div>", unsafe_allow_html=True)
 
         # Tentukan apakah slider telah digeser oleh pengguna
         if 'last_slider_value' not in st.session_state:
@@ -3687,15 +3710,15 @@ def display_weather_info():
                 weather_desc_text = "Cuaca buruk, memancing sangat sulit karena hujan dan dingin."
             elif current_score <= 2:  # Agak buruk
                 current_weather_desc = "Hangat"
-                current_weather_icon = "🌙"
+                current_weather_icon = "🌙"  # Ikon bulan untuk malam
                 weather_desc_text = "Cuaca hangat di malam hari, memancing masih memungkinkan tetapi ikan mungkin kurang aktif."
             elif current_score <= 3:  # Sedang
                 current_weather_desc = "Berawan"
-                current_weather_icon = "⛅"
+                current_weather_icon = "☁️"  # Ikon berawan untuk malam
                 weather_desc_text = "Cuaca berawan di malam hari, cukup baik untuk memancing."
             else:  # Bagus
                 current_weather_desc = "Cerah"
-                current_weather_icon = "🌙"
+                current_weather_icon = "🌙"  # Ikon bulan untuk malam
                 weather_desc_text = "Cuaca cerah di malam hari, sangat mendukung untuk memancing."
 
         current_condition = "Baik" if current_score >= 3 else "Cukup Baik" if current_score >= 1 else "Kurang Baik"
@@ -3733,12 +3756,12 @@ def display_weather_info():
             # Analisis Suhu
             suhu = current_data['temperature']
             if suhu > 32:
-                suhu_desc = "Suhu terlalu panas, buruk untuk ikan tropis."
+                suhu_desc = "Suhu terlalu panas, kondisi ini buruk untuk sebagian besar ikan."
                 suhu_pros = "Meningkatkan metabolisme ikan dalam jangka pendek."
                 suhu_cons = "Meningkatkan risiko stres panas, penyakit, dan kematian ikan."
                 suhu_score = 0  # Buruk
             elif 28 <= suhu <= 32:
-                suhu_desc = "Suhu agak panas, cukup baik untuk ikan tropis."
+                suhu_desc = "Suhu agak panas, kondisi ini cukup baik untuk ikan tropis."
                 suhu_pros = "Mendukung aktivitas ikan, tetapi perlu pemantauan."
                 suhu_cons = "Dapat menyebabkan stres jika berlangsung lama."
                 suhu_score = 0.5  # Cukup baik
@@ -3748,7 +3771,7 @@ def display_weather_info():
                 suhu_cons = "Tidak ada dampak negatif signifikan."
                 suhu_score = 1  # Bagus
             else:
-                suhu_desc = "Suhu terlalu dingin, kurang optimal untuk ikan tropis."
+                suhu_desc = "Suhu terlalu dingin, kondisi ini kurang optimal untuk ikan tropis."
                 suhu_pros = "Mengurangi risiko penyakit akibat panas."
                 suhu_cons = "Memperlambat metabolisme dan aktivitas ikan."
                 suhu_score = 0  # Buruk
@@ -3756,22 +3779,22 @@ def display_weather_info():
             # Analisis Kelembapan
             kelembapan = current_data['humidity']
             if kelembapan > 85:
-                kelembapan_desc = "Kelembapan terlalu tinggi, buruk untuk perikanan."
+                kelembapan_desc = "Kelembapan terlalu tinggi, kondisi ini buruk untuk perikanan."
                 kelembapan_pros = "Mendukung lingkungan lembap untuk ikan tertentu."
                 kelembapan_cons = "Meningkatkan risiko jamur dan penyakit di kolam."
                 kelembapan_score = 0  # Buruk
             elif 70 <= kelembapan <= 85:
-                kelembapan_desc = "Kelembapan agak tinggi, cukup baik untuk perikanan."
+                kelembapan_desc = "Kelembapan agak tinggi, kondisi ini cukup baik untuk perikanan."
                 kelembapan_pros = "Mendukung ekosistem air yang stabil."
                 kelembapan_cons = "Dapat sedikit meningkatkan risiko jamur."
                 kelembapan_score = 0.5  # Cukup baik
             elif 55 <= kelembapan < 70:
-                kelembapan_desc = "Kelembapan ideal, sangat baik untuk perikanan."
+                kelembapan_desc = "Kelembapan ideal, kondisi ini sangat baik untuk perikanan."
                 kelembapan_pros = "Stabil untuk ekosistem air dan udara."
                 kelembapan_cons = "Tidak ada dampak negatif signifikan."
                 kelembapan_score = 1  # Bagus
             else:
-                kelembapan_desc = "Kelembapan terlalu rendah, kurang optimal."
+                kelembapan_desc = "Kelembapan terlalu rendah, kondisi ini kurang optimal."
                 kelembapan_pros = "Mengurangi risiko jamur di lingkungan."
                 kelembapan_cons = "Dapat menyebabkan kekeringan pada permukaan air."
                 kelembapan_score = 0  # Buruk
@@ -3779,17 +3802,17 @@ def display_weather_info():
             # Analisis Kecepatan Angin
             angin = current_data['wind_speed']
             if angin > 8:
-                angin_desc = "Angin kencang, buruk untuk perikanan."
+                angin_desc = "Angin kencang, kondisi ini buruk untuk perikanan."
                 angin_pros = "Meningkatkan sirkulasi udara di kolam terbuka."
                 angin_cons = "Berisiko untuk stabilitas perahu dan operasi laut."
                 angin_score = 0  # Buruk
             elif 4 <= angin <= 8:
-                angin_desc = "Angin sedang, cukup aman untuk memancing."
+                angin_desc = "Angin sedang, kondisi ini cukup aman untuk memancing."
                 angin_pros = "Mendukung sirkulasi udara tanpa risiko besar."
                 angin_cons = "Dapat sedikit mengganggu stabilitas perahu kecil."
                 angin_score = 0.5  # Cukup baik
             else:
-                angin_desc = "Angin lemah, kondisi ideal untuk perikanan."
+                angin_desc = "Angin lemah, kondisi ini ideal untuk perikanan."
                 angin_pros = "Aman untuk operasi perikanan di laut."
                 angin_cons = "Tidak ada dampak negatif signifikan."
                 angin_score = 1  # Bagus
@@ -3797,17 +3820,17 @@ def display_weather_info():
             # Analisis Kondisi Hujan
             kondisi = current_data['description'].lower()
             if "hujan" in kondisi or "rintik" in kondisi or "petir" in kondisi:
-                kondisi_desc = "Hujan, kondisi buruk untuk memancing."
+                kondisi_desc = "Hujan, kondisi ini buruk untuk memancing."
                 kondisi_pros = "Meningkatkan kadar oksigen di air."
                 kondisi_cons = "Visibilitas air buruk, memancing lebih sulit."
                 kondisi_score = 0  # Buruk
             elif "cerah" in kondisi:
-                kondisi_desc = "Cerah, kondisi ideal untuk memancing."
+                kondisi_desc = "Cerah, kondisi ini ideal untuk memancing."
                 kondisi_pros = "Visibilitas air baik, memancing lebih mudah."
                 kondisi_cons = "Tidak ada dampak negatif signifikan."
                 kondisi_score = 1  # Bagus
             else:
-                kondisi_desc = "Berawan, kondisi cukup baik untuk memancing."
+                kondisi_desc = "Berawan, kondisi ini cukup baik untuk memancing."
                 kondisi_pros = "Suhu lebih stabil, ikan lebih aktif."
                 kondisi_cons = "Cahaya matahari berkurang, mungkin memengaruhi visibilitas."
                 kondisi_score = 0.5  # Cukup baik
@@ -3866,8 +3889,6 @@ def display_weather_info():
 
         # Tutup box
         st.markdown("</div>", unsafe_allow_html=True)
-    else:
-        st.warning("Silakan masukkan lokasi untuk melihat Ramalan cuaca.")
 
 def handle_csv_upload_and_analysis():
     """Handle CSV upload and data analysis with improved UI"""
