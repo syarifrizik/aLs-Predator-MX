@@ -79,7 +79,6 @@ pyparsing==3.1.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2024.1
-# pywin32==306
 PyYAML==6.0.1
 pyzmq==26.0.3
 referencing==0.35.1
@@ -87,11 +86,11 @@ requests==2.32.2
 rich==13.7.1
 rpds-py==0.18.1
 rsa==4.9
-six==1.16.0
+six==1.16.6
 smmap==5.0.1
 sniffio==1.3.1
 stack-data==0.6.3
-streamlit>=1.10.0
+streamlit==1.30.0  # Diupgrade ke versi terbaru untuk mendukung pandas>=2 dan protobuf>=4
 tenacity==8.3.0
 tokenizers==0.19.1
 toml==0.10.2
@@ -108,3 +107,4 @@ validators==0.28.1
 watchdog==4.0.0
 wcwidth==0.2.13
 zipp==3.18.2
+gunicorn==20.1.0  # Ditambahkan untuk server WSGI
